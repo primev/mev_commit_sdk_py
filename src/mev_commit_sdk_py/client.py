@@ -18,6 +18,26 @@ class Client:
     def get_preconf_commit(self, block_number: str = '540569') -> str:
         """
         Get the precommitted commit for a given block number.
+
+        PreConfCommitmentStore Contract - 0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3
+
+        event signature:
+        `CommitmentStored(
+        bytes32 indexed commitmentIndex, 
+        address bidder, 
+        address commiter, 
+        uint64 bid, 
+        uint64 blockNumber, 
+        bytes32 bidHash, 
+        uint64 decayStartTimeStamp, 
+        uint64 decayEndTimeStamp, 
+        string txnHash, 
+        bytes32 commitmentHash, 
+        bytes bidSignature, 
+        bytes commitmentSignature, 
+        uint64 dispatchTimestamp, 
+        bytes sharedSecretKey
+        )`
         """
         data_df: pl.DataFrame = cryo.collect(
             'logs',
