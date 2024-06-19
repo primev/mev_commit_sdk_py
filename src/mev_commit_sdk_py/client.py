@@ -15,7 +15,7 @@ class Client:
     load_dotenv()
     rpc = os.getenv("RPC")
 
-    def get_preconf_commit(self, block_number: str = '540569') -> str:
+    def get_preconf_commit(self, block_number: str = ':latest') -> str:
         """
         Get the precommitted commit for a given block number.
 
@@ -44,6 +44,8 @@ class Client:
             rpc=self.rpc,
             hex=True,
             blocks=[block_number],
+            # inner_req_size is number of logs per request. Sparse logs can have a higehr value
+            inner_request_size=10000,
             contract=['0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3'],
             event_signature='CommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint64 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)',
             topic0=[
