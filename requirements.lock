@@ -79,6 +79,8 @@ pyarrow==16.1.0
     # via mev-commit-sdk-py
 python-dateutil==2.9.0.post0
     # via pandas
+python-dotenv==1.0.1
+    # via mev-commit-sdk-py
 pytz==2024.1
     # via pandas
 pyviz-comms==3.0.2
