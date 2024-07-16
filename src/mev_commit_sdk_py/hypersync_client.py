@@ -1,9 +1,12 @@
-import asyncio
 import hypersync
-import polars as pl
 from dataclasses import dataclass, field
 from typing import List
-from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMapping, DataType
+from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMapping, DataType, LogSelection, FieldSelection, LogField
+
+# https://docs.primev.xyz/developers/testnet#contract-addresses
+oracle_contract: str = "0x6856Eb630C79D491886E104D328834643B3F69E3".lower()  # oracle contrac
+# block tracker contract
+block_tracker_contract: str = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower()
 
 
 @dataclass
@@ -77,47 +80,32 @@ class Hypersync:
 
         return await self.client.collect_parquet('data', query, config)
 
-    # def query_txs(self, address: Union[str, Dict[list, list]], period: int) -> pl.DataFrame:
-    #     """ Query transactions for a given address and period.
+    async def get_new_l1_block_event(self, block_range: int, start_block: int = 0) -> None:
+        """
 
-    #      Parameters:
-    #      - address (str): The blockchain address to query transactions for.
-    #      - period (int): The time period over which transactions should be queried.
+        Saves query results as parquet files in a data folder.
+        """
+        if start_block == 0:
+            height = await self.client.get_height()
 
-    #      Returns:
-    #      - A DataFrame containing transaction details for the specified address and period.
-    #     """
-    #     asyncio.run(self.fetch_data(address=address, period=period))
+        query = hypersync.Query(
+            from_block=height - (block_range),  # Calculate starting block.
+            logs=[LogSelection(
+                address=[block_tracker_contract],
+                topics=[
+                    ["0x8323d3e5d25db513e1a772870aaa45e9b069a13d49879d72e70638b5c1c18cb7"]],
+            )],
+            field_selection=FieldSelection(
+                log=[e.value for e in LogField],
+                transaction=[e.value for e in TransactionField]
+            )
+        )
 
-    #     # Merge separate datasets into a single dataset
-    #     txs_df = pl.scan_parquet('data/transactions.parquet')
-    #     blocks_df = pl.scan_parquet(
-    #         'data/blocks.parquet').rename({'number': 'block_number'})
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            event_signature="NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)"
+        )
 
-    #     txs_blocks_joined = txs_df.join(
-    #         blocks_df,
-    #         on='block_number',
-    #         how='left',
-    #         coalesce=True,
-    #         suffix='_block'
-    #     ).unique()
+        print("Running the query...")
 
-    #     final_df = txs_blocks_joined.select(
-    #         'block_number',
-    #         'extra_data',
-    #         'base_fee_per_gas',
-    #         'timestamp',
-    #         'hash',
-    #         'from',
-    #         'to',
-    #         'gas',
-    #         'transaction_index',
-    #         'gas_price',
-    #         'effective_gas_price',
-    #         'gas_used',
-    #         'cumulative_gas_used',
-    #         'max_fee_per_gas',
-    #         'max_priority_fee_per_gas',
-    #     ).collect()
-
-    #     return pl.DataFrame(final_df)
+        return await self.client.collect_parquet('data', query, config)
