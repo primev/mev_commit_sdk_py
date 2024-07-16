@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 
 @dataclass
-class Client:
+class CryoClient:
     """
     Manages connecting to the mev-commit chain using cryo.
     """
