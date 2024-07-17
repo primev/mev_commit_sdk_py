@@ -11,18 +11,21 @@ block_tracker_contract: str = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower
 
 @dataclass
 class Hypersync:
-    client: HypersyncClient = field(
-        default_factory=lambda: HypersyncClient(
-            hypersync.ClientConfig(
-                url='https://mev-commit.hypersync.xyz'
-            )
-        )
-    )
+
+    url: str
+    client: HypersyncClient = field(init=False)
     transactions: List[hypersync.TransactionField] = field(
         default_factory=list)
     blocks: List[hypersync.BlockField] = field(default_factory=list)
 
-    async def fetch_data(self, block_range: int, start_block: int = 0, ) -> None:
+    def __post_init__(self):
+        self.client = HypersyncClient(
+            hypersync.ClientConfig(
+                url=self.url
+            )
+        )
+
+    async def get_blocks_txs(self, block_range: int, start_block: int = 0) -> None:
         """
 
         Saves query results as parquet files in a data folder.
