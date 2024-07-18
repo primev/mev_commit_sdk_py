@@ -124,6 +124,8 @@ class Hypersync:
             from_block=height - (block_range),  # Calculate starting block.
             logs=[LogSelection(
                 address=[bidder_register_contract],
+                topics=[
+                    ["0x2ed10ffb7f7e5289e3bb91b8c3751388cb5d9b7f4533b9f0d59881a99822ddb3"]],
             )],
             field_selection=FieldSelection(
                 log=[e.value for e in LogField],
