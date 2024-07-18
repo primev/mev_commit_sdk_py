@@ -1,16 +1,16 @@
 import asyncio
 import polars as pl
-import nest_asyncio
 from mev_commit_sdk_py.hypersync_client import Hypersync
 
 # expand polars df output
 pl.Config.set_fmt_str_lengths(200)
 pl.Config.set_fmt_float("full")
 
+mev_commit: str = 'https://mev-commit.hypersync.xyz'
+holesky: str = 'https://holesky.hypersync.xyz'
+client = Hypersync(holesky)
 
-client = Hypersync()
-
-asyncio.run(client.fetch_data(block_range=1000000))
+asyncio.run(client.get_blocks_txs(block_range=1000000))
 
 txs = pl.read_parquet('data/transactions.parquet')
 
