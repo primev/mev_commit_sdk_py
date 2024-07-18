@@ -4,7 +4,9 @@
 This is a python based SDK to grab data from mev-commit chain, specifically logs and events. You can use this endpoint to lookup data `mev-commit.rpc.hypersync.xyz`. There is currently support for both cryo and hypersync tools.
 
 ## Installation
-This library uses `rye` as the project manager. First install [rye](https://rye.astral.sh/guide/installation/). Then clone the repository and run `rye sync` to install the dependencies and get setup. Current Python version is 3.10.12
+This library uses `rye` as the project manager. First install [rye](https://rye.astral.sh/guide/installation/). Then clone the repository and run `rye sync` to install the dependencies and get setup. Current Python version is 3.10.12. Once installed, add a .env file with the variable `RPC='endpoint'` where endpoint is the url of the rpc server you want to connect to, this is for cryo. 
+
+The hypersync endpoint is `https://mev-commit.hypersync.xyz` and currently is not passed in as an .env variable
 
 ## Usage
 There are various things you can do with the SDK.
