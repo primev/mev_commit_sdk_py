@@ -140,7 +140,11 @@ class Hypersync:
 
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature="BidderRegistered(address indexed bidder, uint256 depositedAmount, uint256 windowNumber)"
+            event_signature="BidderRegistered(address indexed bidder, uint256 depositedAmount, uint256 windowNumber)",
+            column_mapping=ColumnMapping(
+                decoded_log={'depositedAmount': DataType.INT64,
+                             'windowNumber': DataType.INT64}
+            )
         )
 
         print("Running the query...")
