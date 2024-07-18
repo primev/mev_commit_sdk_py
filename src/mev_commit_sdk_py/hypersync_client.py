@@ -1,5 +1,6 @@
 import hypersync
 from dataclasses import dataclass, field
+import polars as pl
 from typing import List
 from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMapping, DataType, LogSelection, FieldSelection, LogField
 
@@ -7,6 +8,7 @@ from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMappi
 oracle_contract: str = "0x6856Eb630C79D491886E104D328834643B3F69E3".lower()  # oracle contrac
 # block tracker contract
 block_tracker_contract: str = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower()
+bidder_register_contract: str = "0x7ffa86fF89489Bca72Fec2a978e33f9870B2Bd25".lower()
 
 
 @dataclass
@@ -95,8 +97,6 @@ class Hypersync:
             from_block=height - (block_range),  # Calculate starting block.
             logs=[LogSelection(
                 address=[block_tracker_contract],
-                topics=[
-                    ["0x8323d3e5d25db513e1a772870aaa45e9b069a13d49879d72e70638b5c1c18cb7"]],
             )],
             field_selection=FieldSelection(
                 log=[e.value for e in LogField],
@@ -112,3 +112,35 @@ class Hypersync:
         print("Running the query...")
 
         return await self.client.collect_parquet('data', query, config)
+
+    async def get_window_deposits(self, block_range: int, start_block: int = 0, save_data: bool = False) -> None:
+        """
+        Saves query results as parquet files in a data folder.
+        """
+        if start_block == 0:
+            height = await self.client.get_height()
+
+        query = hypersync.Query(
+            from_block=height - (block_range),  # Calculate starting block.
+            logs=[LogSelection(
+                address=[bidder_register_contract],
+            )],
+            field_selection=FieldSelection(
+                log=[e.value for e in LogField],
+                transaction=[e.value for e in TransactionField]
+            )
+        )
+
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            event_signature="BidderRegistered(address indexed bidder, uint256 depositedAmount, uint256 windowNumber)"
+        )
+
+        print("Running the query...")
+
+        match save_data:
+            case True:
+                return await self.client.collect_parquet('data', query, config)
+            case False:
+                data = await self.client.collect_arrow(query, config)
+                return pl.from_arrow(data.data.decoded_logs)
