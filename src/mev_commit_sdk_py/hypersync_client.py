@@ -85,7 +85,7 @@ class Hypersync:
 
         return await self.client.collect_parquet('data', query, config)
 
-    async def get_new_l1_block_event(self, block_range: int, start_block: int = 0) -> None:
+    async def get_new_l1_block_event(self, block_range: int, start_block: int = 0, save_data: bool = False) -> None:
         """
 
         Saves query results as parquet files in a data folder.
@@ -111,7 +111,12 @@ class Hypersync:
 
         print("Running the query...")
 
-        return await self.client.collect_parquet('data', query, config)
+        match save_data:
+            case True:
+                return await self.client.collect_parquet('data', query, config)
+            case False:
+                data = await self.client.collect_arrow(query, config)
+                return pl.from_arrow(data.data.decoded_logs)
 
     async def get_window_deposits(self, block_range: int, start_block: int = 0, save_data: bool = False) -> None:
         """
