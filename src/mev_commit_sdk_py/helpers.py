@@ -10,3 +10,9 @@ def byte_to_string(hex_string):
     except UnicodeDecodeError:
         human_readable_string = bytes_object.decode('latin-1')
     return human_readable_string
+
+# Function to convert hex string to human-readable string
+
+
+def hex_to_str(hex_str):
+    return int(hex_str, 16)
