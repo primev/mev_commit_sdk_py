@@ -20,5 +20,7 @@ withdraw_windows = withdraws_df['window_f64'].to_list()
 # take the set difference between deposit_windows and withdraw_windows
 windows = list(set(deposit_windows) - set(withdraw_windows))
 
+# convert float to integer
+windows = [int(window) for window in windows]
 print('windows with funds still locked')
 print(windows)
