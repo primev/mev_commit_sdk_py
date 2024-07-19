@@ -1,10 +1,10 @@
 [project]
 name = "mev-commit-sdk-py"
 version = "0.1.0"
-description = "mev-commit python sdk for on-chain data retrieval"
+description = "mev-commit python sdk for on-chain data retrieval for mev-commit chain"
 authors = [{ name = "Evan K", email = "evan@primev.xyz" }]
 dependencies = [
-    "polars>=0.20.22",
+    "polars>=1.0.0",
     "hvplot>=0.9.2",
     "pyarrow>=16.0.0",
     "cryo @ https://github.com/primev/cryo/raw/main/wheels/cryo-0.3.2-cp310-cp310-manylinux_2_34_x86_64.whl",
