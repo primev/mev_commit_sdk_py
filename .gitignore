@@ -12,3 +12,6 @@ wheels/
 contracts/*
 wip/*
 data/*
+abi/*
+notebooks/*
+scripts_web3/*
