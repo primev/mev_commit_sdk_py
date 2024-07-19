@@ -24,11 +24,13 @@ colorcet==3.1.0
     # via hvplot
 contourpy==1.2.1
     # via bokeh
-cryo @ https://github.com/primev/cryo/raw/main/wheels/cryo-0.3.2-cp310-cp310-manylinux_2_34_x86_64.whl
+cryo==0.3.2
     # via mev-commit-sdk-py
 holoviews==1.19.0
     # via hvplot
 hvplot==0.10.0
+    # via mev-commit-sdk-py
+hypersync==0.7.8
     # via mev-commit-sdk-py
 idna==3.7
     # via requests
@@ -73,7 +75,7 @@ param==2.1.0
     # via pyviz-comms
 pillow==10.3.0
     # via bokeh
-polars==0.20.31
+polars==1.2.1
     # via mev-commit-sdk-py
 pyarrow==16.1.0
     # via mev-commit-sdk-py
@@ -93,6 +95,8 @@ requests==2.32.3
 six==1.16.0
     # via bleach
     # via python-dateutil
+strenum==0.4.15
+    # via hypersync
 tornado==6.4.1
     # via bokeh
 tqdm==4.66.4
