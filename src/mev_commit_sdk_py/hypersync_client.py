@@ -155,3 +155,41 @@ class Hypersync:
             case False:
                 data = await self.client.collect_arrow(query, config)
                 return pl.from_arrow(data.data.decoded_logs)
+
+    async def get_window_withdraws(self, block_range: int, start_block: int = 0, save_data: bool = False) -> None:
+        """
+        Saves query results as parquet files in a data folder.
+        """
+        if start_block == 0:
+            height = await self.client.get_height()
+
+        query = hypersync.Query(
+            from_block=height - (block_range),  # Calculate starting block.
+            logs=[LogSelection(
+                address=[bidder_register_contract],
+                # topics=[
+                #     ["0xe0bf08ee177ff27bc1de98189b09bbadcb10d332"]],
+            )],
+            field_selection=FieldSelection(
+                log=[e.value for e in LogField],
+                transaction=[e.value for e in TransactionField]
+            )
+        )
+
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            event_signature="BidderWithdrawal(address indexed bidder, uint256 window, uint256 amount)",
+            column_mapping=ColumnMapping(
+                decoded_log={'amount': DataType.INT64,
+                             'window': DataType.INT64}
+            )
+        )
+
+        print("Running the query...")
+
+        match save_data:
+            case True:
+                return await self.client.collect_parquet('data', query, config)
+            case False:
+                data = await self.client.collect_arrow(query, config)
+                return pl.from_arrow(data.data.decoded_logs)
