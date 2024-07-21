@@ -1,7 +1,8 @@
 import hypersync
 from dataclasses import dataclass, field
 import polars as pl
-from typing import List
+from mev_commit_sdk_py.helpers import address_to_topic
+from typing import List, Optional
 from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMapping, DataType, LogSelection, FieldSelection, LogField
 
 # https://docs.primev.xyz/developers/testnet#contract-addresses
@@ -85,16 +86,19 @@ class Hypersync:
 
         return await self.client.collect_parquet('data', query, config)
 
-    async def get_new_l1_block_event(self, block_range: int, start_block: int = 0, save_data: bool = False) -> None:
+    async def get_new_l1_block_event(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> None:
         """
+        if from_block is None, defaults to the current block height and run a full historical query.
+        """
+        if to_block is None:  # stop at the en of the chain
+            to_block = await self.client.get_height()
 
-        Saves query results as parquet files in a data folder.
-        """
-        if start_block == 0:
-            height = await self.client.get_height()
+        if from_block is None:  # start from beginning of the chain
+            from_block = 0
 
         query = hypersync.Query(
-            from_block=height - (block_range),  # Calculate starting block.
+            from_block=from_block,
+            to_block=to_block,
             logs=[LogSelection(
                 address=[block_tracker_contract],
             )],
@@ -118,19 +122,32 @@ class Hypersync:
                 data = await self.client.collect_arrow(query, config)
                 return pl.from_arrow(data.data.decoded_logs)
 
-    async def get_window_deposits(self, block_range: int, start_block: int = 0, save_data: bool = False) -> None:
+    async def get_window_deposits(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> None:
         """
         Saves query results as parquet files in a data folder.
         """
-        if start_block == 0:
-            height = await self.client.get_height()
+        if to_block is None:  # stop at the en of the chain
+            to_block = await self.client.get_height()
+
+        if from_block is None:  # start from beginning of the chain
+            from_block = 0
+
+        # make address lowercase and pad
+        padded_address = address_to_topic(
+            address.lower()) if address is not None else None
+
+        topics = [
+            ["0x2ed10ffb7f7e5289e3bb91b8c3751388cb5d9b7f4533b9f0d59881a99822ddb3"]
+        ]
+        if padded_address:
+            topics.append([padded_address])
 
         query = hypersync.Query(
-            from_block=height - (block_range),  # Calculate starting block.
+            from_block=from_block,
+            to_block=to_block,
             logs=[LogSelection(
                 address=[bidder_register_contract],
-                topics=[
-                    ["0x2ed10ffb7f7e5289e3bb91b8c3751388cb5d9b7f4533b9f0d59881a99822ddb3"]],
+                topics=topics,
             )],
             field_selection=FieldSelection(
                 log=[e.value for e in LogField],
@@ -156,19 +173,32 @@ class Hypersync:
                 data = await self.client.collect_arrow(query, config)
                 return pl.from_arrow(data.data.decoded_logs)
 
-    async def get_window_withdraws(self, block_range: int, start_block: int = 0, save_data: bool = False) -> None:
+    async def get_window_withdraws(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> None:
         """
         Saves query results as parquet files in a data folder.
         """
-        if start_block == 0:
-            height = await self.client.get_height()
+        if to_block is None:  # stop at the en of the chain
+            to_block = await self.client.get_height()
+
+        if from_block is None:  # start from beginning of the chain
+            from_block = 0
+
+        # make address lowercase and pad
+        padded_address = address_to_topic(
+            address.lower()) if address is not None else None
+
+        topics = [
+            ["0x2be239cccec761cb15b4070dda36677f39cb05afba45c7419fe7e27ed2c90b29"]
+        ]
+        if padded_address:
+            topics.append([padded_address])
 
         query = hypersync.Query(
-            from_block=height - (block_range),  # Calculate starting block.
+            from_block=from_block,
+            to_block=to_block,
             logs=[LogSelection(
                 address=[bidder_register_contract],
-                # topics=[
-                #     ["0xe0bf08ee177ff27bc1de98189b09bbadcb10d332"]],
+                topics=topics,
             )],
             field_selection=FieldSelection(
                 log=[e.value for e in LogField],

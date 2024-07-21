@@ -10,3 +10,7 @@ def byte_to_string(hex_string):
     except UnicodeDecodeError:
         human_readable_string = bytes_object.decode('latin-1')
     return human_readable_string
+
+# Convert address to topic for filtering. Padds the address with zeroes.
+def address_to_topic(address):
+    return "0x000000000000000000000000" + address[2:]
