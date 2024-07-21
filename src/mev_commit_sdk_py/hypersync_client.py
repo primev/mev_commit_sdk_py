@@ -39,6 +39,9 @@ def timer(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]
 
 @dataclass
 class Hypersync:
+    """
+    Client wrapper aroound Hypersync Indexer to get transactions, blocks, and events.
+    """
     url: str
     client: HypersyncClient = field(init=False)
     transactions: List[hypersync.TransactionField] = field(
