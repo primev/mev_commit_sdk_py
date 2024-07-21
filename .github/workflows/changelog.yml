@@ -18,16 +18,14 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install Rye
+      - name: Install Rye and dependencies
         run: |
           python -m pip install --upgrade pip
           pip install rye
-
-      - name: Install project dependencies
-        run: rye sync
+          pip install git-changelog
 
       - name: Generate changelog
-        run: rye run changelog > CHANGELOG.md
+        run: rye run changelog
 
       - name: Commit changelog
         run: |

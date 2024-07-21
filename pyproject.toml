@@ -31,4 +31,4 @@ allow-direct-references = true
 packages = ["src/mev_commit_sdk_py"]
 
 [tool.rye.scripts]
-changelog = "git_changelog.cli:main"
+changelog = "git-changelog --style=angular --output CHANGELOG.md"
