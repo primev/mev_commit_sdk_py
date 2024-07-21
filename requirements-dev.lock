@@ -17,6 +17,8 @@ bokeh==3.4.2
     # via holoviews
     # via hvplot
     # via panel
+bump2version==1.0.1
+    # via mev-commit-sdk-py
 certifi==2024.7.4
     # via requests
 charset-normalizer==3.3.2

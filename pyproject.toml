@@ -12,6 +12,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "hypersync>=0.7.8",
     "git-changelog>=2.5.2",
+    "bump2version>=1.0.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"
