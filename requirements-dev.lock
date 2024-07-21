@@ -98,6 +98,7 @@ pyviz-comms==3.0.2
     # via panel
 pyyaml==6.0.1
     # via bokeh
+    # via mev-commit-sdk-py
 requests==2.32.3
     # via panel
 semver==3.0.2
