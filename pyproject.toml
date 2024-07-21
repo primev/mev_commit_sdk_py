@@ -11,9 +11,10 @@ dependencies = [
     "cryo>=0.3.2",
     "python-dotenv>=1.0.1",
     "hypersync>=0.7.8",
+    "git-changelog>=2.5.2",
 ]
 readme = "README.md"
-requires-python = ">= 3.8"
+requires-python = ">= 3.12"
 
 [build-system]
 requires = ["hatchling"]

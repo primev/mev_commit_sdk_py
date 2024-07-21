@@ -9,13 +9,15 @@
 #   generate-hashes: false
 
 -e file:.
+appdirs==1.4.4
+    # via git-changelog
 bleach==6.1.0
     # via panel
-bokeh==3.4.1
+bokeh==3.4.2
     # via holoviews
     # via hvplot
     # via panel
-certifi==2024.6.2
+certifi==2024.7.4
     # via requests
 charset-normalizer==3.3.2
     # via requests
@@ -26,7 +28,9 @@ contourpy==1.2.1
     # via bokeh
 cryo==0.3.2
     # via mev-commit-sdk-py
-holoviews==1.19.0
+git-changelog==2.5.2
+    # via mev-commit-sdk-py
+holoviews==1.19.1
     # via hvplot
 hvplot==0.10.0
     # via mev-commit-sdk-py
@@ -36,6 +40,7 @@ idna==3.7
     # via requests
 jinja2==3.1.4
     # via bokeh
+    # via git-changelog
 linkify-it-py==2.0.3
     # via panel
 markdown==3.6
@@ -49,7 +54,7 @@ mdit-py-plugins==0.4.1
     # via panel
 mdurl==0.1.2
     # via markdown-it-py
-numpy==2.0.0
+numpy==2.0.1
     # via bokeh
     # via contourpy
     # via holoviews
@@ -58,6 +63,7 @@ numpy==2.0.0
     # via pyarrow
 packaging==24.1
     # via bokeh
+    # via git-changelog
     # via holoviews
     # via hvplot
 pandas==2.2.2
@@ -68,16 +74,16 @@ pandas==2.2.2
 panel==1.4.4
     # via holoviews
     # via hvplot
-param==2.1.0
+param==2.1.1
     # via holoviews
     # via hvplot
     # via panel
     # via pyviz-comms
-pillow==10.3.0
+pillow==10.4.0
     # via bokeh
 polars==1.2.1
     # via mev-commit-sdk-py
-pyarrow==16.1.0
+pyarrow==17.0.0
     # via mev-commit-sdk-py
 python-dateutil==2.9.0.post0
     # via pandas
@@ -92,6 +98,8 @@ pyyaml==6.0.1
     # via bokeh
 requests==2.32.3
     # via panel
+semver==3.0.2
+    # via git-changelog
 six==1.16.0
     # via bleach
     # via python-dateutil
