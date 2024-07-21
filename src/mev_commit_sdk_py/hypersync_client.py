@@ -1,8 +1,9 @@
+import time
 import hypersync
 from dataclasses import dataclass, field
 import polars as pl
 from mev_commit_sdk_py.helpers import address_to_topic
-from typing import List, Optional
+from typing import Awaitable, Callable, List, Optional
 from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMapping, DataType, LogSelection, FieldSelection, LogField
 
 # https://docs.primev.xyz/developers/testnet#contract-addresses
@@ -10,6 +11,27 @@ oracle_contract: str = "0x6856Eb630C79D491886E104D328834643B3F69E3".lower()  # o
 # block tracker contract
 block_tracker_contract: str = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower()
 bidder_register_contract: str = "0x7ffa86fF89489Bca72Fec2a978e33f9870B2Bd25".lower()
+
+
+def timer(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]]:
+    """
+    This decorator prints the time taken for the asynchronous wrapped function to execute.
+    It is useful for performance monitoring and debugging.
+
+    Args:
+        func (Callable[..., Awaitable[None]]): The asynchronous function to be wrapped.
+
+    Returns:
+        Callable[..., Awaitable[None]]: The wrapped function with timing functionality.
+    """
+    async def wrapper(*args, **kwargs):
+        start_time = time.time()  # Start the timer
+        result = await func(*args, **kwargs)
+        end_time = time.time()  # End the timer
+        duration = end_time - start_time
+        print(f"{func.__name__} query finished in {duration:.2f} seconds.")
+        return result
+    return wrapper
 
 
 @dataclass
@@ -28,6 +50,7 @@ class Hypersync:
             )
         )
 
+    @timer
     async def get_blocks_txs(self, block_range: int, start_block: int = 0) -> None:
         """
 
@@ -86,7 +109,8 @@ class Hypersync:
 
         return await self.client.collect_parquet('data', query, config)
 
-    async def get_new_l1_block_event(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> None:
+    @timer
+    async def get_new_l1_block_event(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         if from_block is None, defaults to the current block height and run a full historical query.
         """
@@ -113,15 +137,16 @@ class Hypersync:
             event_signature="NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)"
         )
 
-        print("Running the query...")
-
         match save_data:
             case True:
-                return await self.client.collect_parquet('data', query, config)
+                result = await self.client.collect_parquet('data', query, config)
             case False:
                 data = await self.client.collect_arrow(query, config)
-                return pl.from_arrow(data.data.decoded_logs)
+                result = pl.from_arrow(data.data.decoded_logs)
 
+        return result
+
+    @timer
     async def get_window_deposits(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> None:
         """
         Saves query results as parquet files in a data folder.
@@ -164,15 +189,16 @@ class Hypersync:
             )
         )
 
-        print("Running the query...")
-
         match save_data:
             case True:
-                return await self.client.collect_parquet('data', query, config)
+                result = await self.client.collect_parquet('data', query, config)
             case False:
                 data = await self.client.collect_arrow(query, config)
-                return pl.from_arrow(data.data.decoded_logs)
+                result = pl.from_arrow(data.data.decoded_logs)
 
+        return result
+
+    @timer
     async def get_window_withdraws(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> None:
         """
         Saves query results as parquet files in a data folder.
@@ -215,11 +241,11 @@ class Hypersync:
             )
         )
 
-        print("Running the query...")
-
         match save_data:
             case True:
-                return await self.client.collect_parquet('data', query, config)
+                result = await self.client.collect_parquet('data', query, config)
             case False:
                 data = await self.client.collect_arrow(query, config)
-                return pl.from_arrow(data.data.decoded_logs)
+                result = pl.from_arrow(data.data.decoded_logs)
+
+        return result
