@@ -4,7 +4,7 @@
 This is a python based SDK to grab data from mev-commit chain, specifically logs and events. You can use this endpoint to lookup data `mev-commit.rpc.hypersync.xyz`. There is currently support for both cryo and hypersync tools.
 
 ## Installation
-There are two ways to install. The first way uses pypi `pip install mev-commit-sdk-py==0.1.1`. 
+There are two ways to install. The first way uses pypi `pip install mev-commit-sdk-py`. 
 
 The second way is to clone the repository and install the dependencies. The second method is required to use cryo using Rye. Since cryo doesn't support milisecond timestamps, version 0.3.2 was forked and modified to support milisecond timestamps and a local wheel comes with the repository for installation. Note that you will have to uncomment the pyproject.toml cryo dependency to install the modified version.
 
