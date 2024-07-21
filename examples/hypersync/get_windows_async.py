@@ -6,8 +6,6 @@ from mev_commit_sdk_py.hypersync_client import Hypersync
 pl.Config.set_fmt_str_lengths(200)
 pl.Config.set_fmt_float("full")
 
-# Create an asynchronous function to manage the queries
-
 
 async def main():
     # Initialize the client

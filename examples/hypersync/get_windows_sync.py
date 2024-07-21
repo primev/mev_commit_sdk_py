@@ -12,20 +12,14 @@ client = Hypersync(url='https://mev-commit.hypersync.xyz')
 deposits_df = asyncio.run(client.get_window_deposits(
     address='0xe51EF1836Dbef052BfFd2eB3Fe1314365d23129d'))
 
-# print(deposits_df.head(5))
-
 withdraws_df = asyncio.run(client.get_window_withdraws(
     address='0xe51EF1836Dbef052BfFd2eB3Fe1314365d23129d'))
-# print(withdraws_df.head(5))
-
 
 # extract dataframe columns to lists
 deposit_windows: list[int] = deposits_df['windowNumber'].to_list()
 withdraw_windows: list[int] = withdraws_df['window'].to_list()
 # take the set difference between deposit_windows and withdraw_windows
 windows: list[int] = list(set(deposit_windows) - set(withdraw_windows))
-# convert float to integer
-# windows: list[int] = [int(window) for window in windows]
 print('windows with funds still locked')
 print(windows)
 
