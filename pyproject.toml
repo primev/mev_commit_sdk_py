@@ -29,3 +29,6 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mev_commit_sdk_py"]
+
+[tool.rye.scripts]
+changelog = "git_changelog.cli:main"
