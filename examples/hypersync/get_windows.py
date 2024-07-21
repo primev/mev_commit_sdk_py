@@ -9,16 +9,15 @@ pl.Config.set_fmt_float("full")
 # query window data
 client = Hypersync(url='https://mev-commit.hypersync.xyz')
 
-deposits_df = asyncio.run(client.get_window_deposits(1000000))
+deposits_df = asyncio.run(client.get_window_deposits(
+    address='0xe51EF1836Dbef052BfFd2eB3Fe1314365d23129d'))
 
 # print(deposits_df.head(5))
 
-withdraws_df = asyncio.run(client.get_window_withdraws(1000000))
+withdraws_df = asyncio.run(client.get_window_withdraws(
+    address='0xe51EF1836Dbef052BfFd2eB3Fe1314365d23129d'))
 # print(withdraws_df.head(5))
 
-
-# extract windows with funds still locked
-address: str = "0xe51EF1836Dbef052BfFd2eB3Fe1314365d23129d".lower()
 
 # extract dataframe columns to lists
 deposit_windows: list[int] = deposits_df['windowNumber'].to_list()
