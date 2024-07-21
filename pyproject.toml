@@ -1,6 +1,6 @@
 [project]
 name = "mev-commit-sdk-py"
-version = "0.1.5"
+version = "0.1.6"
 description = "mev-commit python sdk for on-chain data retrieval for mev-commit chain"
 authors = [{ name = "Evan K", email = "evan@primev.xyz" }]
 dependencies = [
