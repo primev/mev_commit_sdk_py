@@ -30,9 +30,11 @@ print('windows with funds still locked')
 print(windows)
 
 # total the amount of ETH locked
-total_deposited = sum(deposits_df['depositedAmount'].to_list())
-total_withdrawn = sum(withdraws_df['amount'].to_list())
+total_deposited = sum(deposits_df.filter(
+    pl.col('windowNumber').is_in(windows))['depositedAmount'].to_list())
+total_withdrawn = sum(withdraws_df.filter(
+    pl.col('window').is_in(windows))['amount'].to_list())
 
 print(f'Total ETH deposited: {total_deposited / 10**18}')
-print(f'Total ETH withdrawn: {total_withdrawn/ 10**18}')
+print(f'Total ETH withdrawn: {total_withdrawn / 10**18}')
 print(f'Total ETH locked: {(total_deposited - total_withdrawn) / 10**18}')
