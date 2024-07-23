@@ -10,10 +10,10 @@ dependencies = [
     # "cryo @ https://github.com/primev/cryo/raw/main/wheels/cryo-0.3.2-cp310-cp310-manylinux_2_34_x86_64.whl",
     "cryo>=0.3.2",
     "python-dotenv>=1.0.1",
-    "hypersync>=0.7.8",
+    "hypersync>=0.7.11",
     "git-changelog>=2.5.2",
     "bump2version>=1.0.1",
-    "pyyaml>=6.0.1",
+    "web3>=6.20.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"

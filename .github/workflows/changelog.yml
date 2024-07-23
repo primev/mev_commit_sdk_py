@@ -18,16 +18,10 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libyaml-dev
-
       - name: Install Rye and dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install rye
-          pip install git-changelog bump2version
+          pip install rye git-changelog bump2version pyyaml
 
       - name: Generate changelog
         run: rye run changelog
