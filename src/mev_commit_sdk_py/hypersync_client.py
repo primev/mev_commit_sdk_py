@@ -1,7 +1,9 @@
 import time
 import hypersync
-from dataclasses import dataclass, field
 import polars as pl
+import web3
+
+from dataclasses import dataclass, field
 from mev_commit_sdk_py.helpers import address_to_topic
 from typing import List, Optional, Callable, Awaitable
 from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMapping, DataType, LogSelection, FieldSelection, LogField
@@ -129,7 +131,7 @@ class Hypersync:
                 transaction=[el.value for el in TransactionField],
                 block=[el.value for el in BlockField],
             ),
-            max_num_transactions=1_000  # for troubleshooting
+            include_all_blocks=True
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
@@ -176,6 +178,7 @@ class Hypersync:
         """
         to_block = to_block or await self.get_height()
         from_block = from_block or 0
+        event_signature = "NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)"
 
         query = self.create_query(
             from_block=from_block,
@@ -184,7 +187,7 @@ class Hypersync:
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature="NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)"
+            event_signature=event_signature
         )
         return await self.collect_data(query, config, save_data)
 
@@ -204,10 +207,13 @@ class Hypersync:
         """
         to_block = to_block or await self.get_height()
         from_block = from_block or 0
+        event_signature = "BidderRegistered(address indexed bidder, uint256 depositedAmount, uint256 windowNumber)"
+        topic = web3.Web3.to_hex(web3.Web3.keccak(
+            text="BidderRegistered(address,uint256,uint256)"))
 
         padded_address = address_to_topic(address.lower()) if address else None
         topics = [
-            ["0x2ed10ffb7f7e5289e3bb91b8c3751388cb5d9b7f4533b9f0d59881a99822ddb3"]]
+            [topic]]
         if padded_address:
             topics.append([padded_address])
 
@@ -219,7 +225,7 @@ class Hypersync:
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature="BidderRegistered(address indexed bidder, uint256 depositedAmount, uint256 windowNumber)",
+            event_signature=event_signature,
             column_mapping=ColumnMapping(
                 decoded_log={'depositedAmount': DataType.INT64,
                              'windowNumber': DataType.INT64}
@@ -243,10 +249,13 @@ class Hypersync:
         """
         to_block = to_block or await self.get_height()
         from_block = from_block or 0
+        event_signature = "BidderWithdrawal(address indexed bidder, uint256 window, uint256 amount)"
+        topic = web3.Web3.to_hex(web3.Web3.keccak(
+            text="BidderWithdrawal(address, uint256, uint256)"))
 
         padded_address = address_to_topic(address.lower()) if address else None
         topics = [
-            ["0x2be239cccec761cb15b4070dda36677f39cb05afba45c7419fe7e27ed2c90b29"]]
+            [topic]]
         if padded_address:
             topics.append([padded_address])
 
@@ -258,7 +267,7 @@ class Hypersync:
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature="BidderWithdrawal(address indexed bidder, uint256 window, uint256 amount)",
+            event_signature=event_signature,
             column_mapping=ColumnMapping(
                 decoded_log={'amount': DataType.INT64,
                              'window': DataType.INT64}
