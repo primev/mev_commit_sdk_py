@@ -7,10 +7,21 @@
 #   all-features: false
 #   with-sources: false
 #   generate-hashes: false
+#   universal: false
 
 -e file:.
+aiohttp==3.9.5
+    # via web3
+aiosignal==1.3.1
+    # via aiohttp
 appdirs==1.4.4
     # via git-changelog
+attrs==23.2.0
+    # via aiohttp
+    # via jsonschema
+    # via referencing
+bitarray==2.9.2
+    # via eth-account
 bleach==6.1.0
     # via panel
 bokeh==3.4.2
@@ -23,6 +34,8 @@ certifi==2024.7.4
     # via requests
 charset-normalizer==3.3.2
     # via requests
+ckzg==1.0.2
+    # via eth-account
 colorcet==3.1.0
     # via holoviews
     # via hvplot
@@ -30,21 +43,65 @@ contourpy==1.2.1
     # via bokeh
 cryo==0.3.2
     # via mev-commit-sdk-py
+cytoolz==0.12.3
+    # via eth-utils
+eth-abi==5.1.0
+    # via eth-account
+    # via web3
+eth-account==0.11.2
+    # via web3
+eth-hash==0.7.0
+    # via eth-utils
+    # via web3
+eth-keyfile==0.8.1
+    # via eth-account
+eth-keys==0.5.1
+    # via eth-account
+    # via eth-keyfile
+eth-rlp==1.0.1
+    # via eth-account
+eth-typing==4.4.0
+    # via eth-abi
+    # via eth-keys
+    # via eth-utils
+    # via web3
+eth-utils==4.1.1
+    # via eth-abi
+    # via eth-account
+    # via eth-keyfile
+    # via eth-keys
+    # via eth-rlp
+    # via rlp
+    # via web3
+frozenlist==1.4.1
+    # via aiohttp
+    # via aiosignal
 git-changelog==2.5.2
     # via mev-commit-sdk-py
+hexbytes==0.3.1
+    # via eth-account
+    # via eth-rlp
+    # via web3
 holoviews==1.19.1
     # via hvplot
 hvplot==0.10.0
     # via mev-commit-sdk-py
-hypersync==0.7.8
+hypersync==0.7.11
     # via mev-commit-sdk-py
 idna==3.7
     # via requests
+    # via yarl
 jinja2==3.1.4
     # via bokeh
     # via git-changelog
+jsonschema==4.23.0
+    # via web3
+jsonschema-specifications==2023.12.1
+    # via jsonschema
 linkify-it-py==2.0.3
     # via panel
+lru-dict==1.2.0
+    # via web3
 markdown==3.6
     # via panel
 markdown-it-py==3.0.0
@@ -56,6 +113,9 @@ mdit-py-plugins==0.4.1
     # via panel
 mdurl==0.1.2
     # via markdown-it-py
+multidict==6.0.5
+    # via aiohttp
+    # via yarl
 numpy==2.0.1
     # via bokeh
     # via contourpy
@@ -81,26 +141,46 @@ param==2.1.1
     # via hvplot
     # via panel
     # via pyviz-comms
+parsimonious==0.10.0
+    # via eth-abi
 pillow==10.4.0
     # via bokeh
 polars==1.2.1
     # via mev-commit-sdk-py
+protobuf==5.27.2
+    # via web3
 pyarrow==17.0.0
     # via mev-commit-sdk-py
+pycryptodome==3.20.0
+    # via eth-hash
+    # via eth-keyfile
 python-dateutil==2.9.0.post0
     # via pandas
 python-dotenv==1.0.1
     # via mev-commit-sdk-py
 pytz==2024.1
     # via pandas
+pyunormalize==15.1.0
+    # via web3
 pyviz-comms==3.0.2
     # via holoviews
     # via panel
 pyyaml==6.0.1
     # via bokeh
-    # via mev-commit-sdk-py
+referencing==0.35.1
+    # via jsonschema
+    # via jsonschema-specifications
+regex==2024.5.15
+    # via parsimonious
 requests==2.32.3
     # via panel
+    # via web3
+rlp==4.0.1
+    # via eth-account
+    # via eth-rlp
+rpds-py==0.19.0
+    # via jsonschema
+    # via referencing
 semver==3.0.2
     # via git-changelog
 six==1.16.0
@@ -108,20 +188,30 @@ six==1.16.0
     # via python-dateutil
 strenum==0.4.15
     # via hypersync
+toolz==0.12.1
+    # via cytoolz
 tornado==6.4.1
     # via bokeh
 tqdm==4.66.4
     # via panel
 typing-extensions==4.12.2
+    # via eth-typing
     # via panel
+    # via web3
 tzdata==2024.1
     # via pandas
 uc-micro-py==1.0.3
     # via linkify-it-py
 urllib3==2.2.2
     # via requests
+web3==6.20.1
+    # via mev-commit-sdk-py
 webencodings==0.5.1
     # via bleach
+websockets==12.0
+    # via web3
 xyzservices==2024.6.0
     # via bokeh
     # via panel
+yarl==1.9.4
+    # via aiohttp
