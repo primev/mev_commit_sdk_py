@@ -14,6 +14,7 @@ oracle_contract: str = "0x6856Eb630C79D491886E104D328834643B3F69E3".lower()
 # block tracker contract
 block_tracker_contract: str = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower()
 bidder_register_contract: str = "0x7ffa86fF89489Bca72Fec2a978e33f9870B2Bd25".lower()
+commit_store_contract: str = "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3".lower()
 
 
 def timer(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]]:
@@ -95,7 +96,7 @@ class Hypersync:
 
     async def collect_data(self, query: hypersync.Query, config: hypersync.StreamConfig, save_data: bool, format: str = 'parquet') -> Optional[pl.DataFrame]:
         """
-        Collect data using the Hypersync client and returns output either as a polars dataframe or saves to disk as a parquet file. 
+        Collect data using the Hypersync client and returns output either as a polars dataframe or saves to disk as a parquet file.
 
         Args:
             query (hypersync.Query): The query object.
@@ -271,6 +272,91 @@ class Hypersync:
             column_mapping=ColumnMapping(
                 decoded_log={'amount': DataType.INT64,
                              'window': DataType.INT64}
+            )
+        )
+        return await self.collect_data(query, config, save_data)
+
+    @timer
+    async def get_commit_stores(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+        """
+        get commit store events:
+
+        `CommitmentStored(
+        bytes32 indexed commitmentIndex,
+        address bidder,
+        address commiter,
+        uint256 bid,
+        uint64 blockNumber,
+        bytes32 bidHash,
+        uint64 decayStartTimeStamp,
+        uint64 decayEndTimeStamp,
+        string txnHash,
+        string revertingTxHashes,
+        bytes32 commitmentHash,
+        bytes bidSignature,
+        bytes commitmentSignature,
+        uint64 dispatchTimestamp,
+        bytes sharedSecretKey)`
+        """
+        to_block = to_block or await self.get_height()
+        from_block = from_block or 0
+        event_signature = "CommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)"
+        topic = web3.Web3.to_hex(web3.Web3.keccak(
+            text="CommitmentStored(bytes32,address,address,uint256,uint64,bytes32,uint64,uint64,string,string,bytes32,bytes,bytes,uint64,bytes)"))
+
+        padded_address = address_to_topic(address.lower()) if address else None
+        topics = [
+            [topic]]
+        if padded_address:
+            topics.append([padded_address])
+
+        query = self.create_query(
+            from_block=from_block,
+            to_block=to_block,
+            logs=[LogSelection(
+                address=[commit_store_contract], topics=topics)]
+        )
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            event_signature=event_signature,
+            column_mapping=ColumnMapping(
+                decoded_log={
+                    "bid": DataType.UINT64,
+                    "blockNumber": DataType.UINT64,
+                    "decayStartTimeStamp": DataType.UINT64,
+                    "decayEndTimeStamp": DataType.UINT64,
+                    "dispatchTimestamp": DataType.UINT64,
+                }
+            )
+        )
+        return await self.collect_data(query, config, save_data)
+
+    @timer
+    async def get_encrypted_commit_stores(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+        """
+        get encrypted commit store events:
+
+        `EncryptedCommitmentStored(bytes32 indexed commitmentIndex, address commiter, bytes32 commitmentDigest, bytes32 commitmentSignature, uint64 dispatchTimestamp)`
+        """
+        to_block = to_block or await self.get_height()
+        from_block = from_block or 0
+
+        event_signature = "EncryptedCommitmentStored(bytes32 indexed commitmentIndex, address commiter, bytes32 commitmentDigest, bytes32 commitmentSignature, uint64 dispatchTimestamp)"
+        query = self.create_query(
+            from_block=from_block,
+            to_block=to_block,
+            logs=[LogSelection(
+                address=[commit_store_contract],
+            )
+            ]
+        )
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            event_signature=event_signature,
+            column_mapping=ColumnMapping(
+                decoded_log={
+                    "dispatchTimestamp": DataType.UINT64,
+                }
             )
         )
         return await self.collect_data(query, config, save_data)
