@@ -360,3 +360,110 @@ class Hypersync:
             )
         )
         return await self.collect_data(query, config, save_data)
+
+    @timer
+    async def get_commits_processed(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+        """
+        CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)
+
+        Args:
+            from_block (Optional[int]): The block number to start the query from.
+            to_block (Optional[int]): The block number to end the query at.
+            save_data (bool): Whether to save the data to a file.
+
+        Returns:
+            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
+        """
+        to_block = to_block or await self.get_height()
+        from_block = from_block or 0
+        event_signature = "CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)"
+
+        topic0 = web3.Web3.to_hex(web3.Web3.keccak(
+            text="CommitmentProcessed(bytes32,bool)"
+        ))
+        query = self.create_query(
+            from_block=from_block,
+            to_block=to_block,
+            logs=[LogSelection(address=[oracle_contract], topics=[[topic0]])]
+        )
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            event_signature=event_signature,
+        )
+        return await self.collect_data(query, config, save_data)
+
+    @timer
+    async def get_funds_retrieved(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+        """
+        "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)"
+
+        Args:
+            from_block (Optional[int]): The block number to start the query from.
+            to_block (Optional[int]): The block number to end the query at.
+            save_data (bool): Whether to save the data to a file.
+
+        Returns:
+            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
+        """
+        to_block = to_block or await self.get_height()
+        from_block = from_block or 0
+        event_signature = "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)"
+
+        topic0 = web3.Web3.to_hex(web3.Web3.keccak(
+            text="FundsRetrieved(bytes32,address,uint256,uint256)"
+        ))
+        query = self.create_query(
+            from_block=from_block,
+            to_block=to_block,
+            logs=[LogSelection(
+                address=[bidder_register_contract], topics=[[topic0]])]
+        )
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            event_signature=event_signature,
+            column_mapping=ColumnMapping(
+                decoded_log={
+                    "window": DataType.UINT64,
+                    "amount": DataType.UINT64
+                }
+            )
+        )
+        return await self.collect_data(query, config, save_data)
+
+    @timer
+    async def get_funds_rewarded(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+        """
+        `FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)`
+
+        Args:
+            from_block (Optional[int]): The block number to start the query from.
+            to_block (Optional[int]): The block number to end the query at.
+            save_data (bool): Whether to save the data to a file.
+
+        Returns:
+            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
+        """
+        to_block = to_block or await self.get_height()
+        from_block = from_block or 0
+        event_signature = "FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)"
+
+        topic0 = web3.Web3.to_hex(web3.Web3.keccak(
+            text="FundsRewarded(bytes32,address,address,uint256,uint256)"
+        ))
+        query = self.create_query(
+            from_block=from_block,
+            to_block=to_block,
+            logs=[LogSelection(
+                address=[bidder_register_contract], topics=[[topic0]])]
+        )
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            event_signature=event_signature,
+            column_mapping=ColumnMapping(
+                decoded_log={
+                    "window": DataType.UINT64,
+                    "amount": DataType.UINT64
+                }
+            )
+        )
+        return await self.collect_data(query, config, save_data)
