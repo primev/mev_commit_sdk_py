@@ -14,6 +14,7 @@ oracle_contract: str = "0x6856Eb630C79D491886E104D328834643B3F69E3".lower()
 # block tracker contract
 block_tracker_contract: str = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower()
 bidder_register_contract: str = "0x7ffa86fF89489Bca72Fec2a978e33f9870B2Bd25".lower()
+provider_registry_contract: str = "0x4FC9b98e1A0Ff10de4c2cf294656854F1d5B207D".lower()
 commit_store_contract: str = "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3".lower()
 
 
@@ -462,6 +463,43 @@ class Hypersync:
             column_mapping=ColumnMapping(
                 decoded_log={
                     "window": DataType.UINT64,
+                    "amount": DataType.UINT64
+                }
+            )
+        )
+        return await self.collect_data(query, config, save_data)
+
+    @timer
+    async def get_funds_slashed(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+        """
+        `FundsSlashed(address indexed provider, uint256 amount)`
+
+        Args:
+            from_block (Optional[int]): The block number to start the query from.
+            to_block (Optional[int]): The block number to end the query at.
+            save_data (bool): Whether to save the data to a file.
+
+        Returns:
+            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
+        """
+        to_block = to_block or await self.get_height()
+        from_block = from_block or 0
+        event_signature = "FundsSlashed(address indexed provider, uint256 amount)"
+
+        topic0 = web3.Web3.to_hex(web3.Web3.keccak(
+            text="FundsSlashed(address,uint256)"
+        ))
+        query = self.create_query(
+            from_block=from_block,
+            to_block=to_block,
+            logs=[LogSelection(
+                address=[provider_registry_contract], topics=[[topic0]])]
+        )
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            event_signature=event_signature,
+            column_mapping=ColumnMapping(
+                decoded_log={
                     "amount": DataType.UINT64
                 }
             )
