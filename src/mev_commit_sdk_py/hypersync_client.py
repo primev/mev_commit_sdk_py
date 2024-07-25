@@ -337,19 +337,22 @@ class Hypersync:
         """
         get encrypted commit store events:
 
-        `EncryptedCommitmentStored(bytes32 indexed commitmentIndex, address commiter, bytes32 commitmentDigest, bytes32 commitmentSignature, uint64 dispatchTimestamp)`
+        `EncryptedCommitmentStored(bytes32 indexed commitmentIndex, address commiter, bytes32 commitmentDigest, bytes commitmentSignature, uint64 dispatchTimestamp)`
         """
         to_block = to_block or await self.get_height()
         from_block = from_block or 0
 
-        event_signature = "EncryptedCommitmentStored(bytes32 indexed commitmentIndex, address commiter, bytes32 commitmentDigest, bytes32 commitmentSignature, uint64 dispatchTimestamp)"
+        event_signature = "EncryptedCommitmentStored(bytes32 indexed commitmentIndex, address commiter, bytes32 commitmentDigest, bytes commitmentSignature, uint64 dispatchTimestamp)"
+        topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
             to_block=to_block,
-            logs=[LogSelection(
-                address=[commit_store_contract],
-            )
-            ]
+            logs=[
+                LogSelection(
+                    address=[commit_store_contract],
+                    topics=[[topic0]],
+                )
+            ],
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,

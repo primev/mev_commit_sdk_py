@@ -14,4 +14,3 @@ client = Hypersync(url='https://mev-commit.hypersync.xyz')
 
 encrypted_stores = asyncio.run(client.get_encrypted_commit_stores())
 print(encrypted_stores)
-
