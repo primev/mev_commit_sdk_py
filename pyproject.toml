@@ -1,6 +1,6 @@
 [project]
 name = "mev-commit-sdk-py"
-version = "0.1.6"
+version = "0.1.8"
 description = "mev-commit python sdk for on-chain data retrieval for mev-commit chain"
 authors = [{ name = "Evan K", email = "evan@primev.xyz" }]
 dependencies = [
@@ -10,7 +10,7 @@ dependencies = [
     # "cryo @ https://github.com/primev/cryo/raw/main/wheels/cryo-0.3.2-cp310-cp310-manylinux_2_34_x86_64.whl",
     "cryo>=0.3.2",
     "python-dotenv>=1.0.1",
-    "hypersync>=0.7.11",
+    "hypersync>=0.7.14",
     "git-changelog>=2.5.2",
     "bump2version>=1.0.1",
     "web3>=6.20.1",
