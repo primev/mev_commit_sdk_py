@@ -14,6 +14,3 @@ wip/*
 data/*
 abi/*
 notebooks/*
-scripts_web3/*
-src/mev_commit_sdk_py/cryo_client.py
-scripts_web3/*
