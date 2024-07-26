@@ -112,7 +112,7 @@ class Hypersync:
             return await self.client.collect_parquet('data', query, config)
         else:
             data = await self.client.collect_arrow(query, config)
-            return pl.from_arrow(data.data.decoded_logs)
+            return pl.from_arrow(data.data.decoded_logs).hstack(pl.from_arrow(data.data.transactions))
 
     @timer
     async def get_blocks_txs(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
@@ -221,6 +221,7 @@ class Hypersync:
             hex_output=hypersync.HexOutput.PREFIXED,
             event_signature=event_signature
         )
+
         return await self.collect_data(query, config, save_data)
 
     @timer
