@@ -13,9 +13,9 @@ async def main():
 
     # Run the queries concurrently
     deposits_df, withdraws_df = await asyncio.gather(
-        client.get_window_deposits(
+        client.get_window_deposits_v1(
             address='0xe51EF1836Dbef052BfFd2eB3Fe1314365d23129d'),
-        client.get_window_withdraws(
+        client.get_window_withdraws_v1(
             address='0xe51EF1836Dbef052BfFd2eB3Fe1314365d23129d')
     )
 

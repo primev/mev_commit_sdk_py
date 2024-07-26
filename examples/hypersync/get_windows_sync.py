@@ -9,10 +9,10 @@ pl.Config.set_fmt_float("full")
 # query window data
 client = Hypersync(url='https://mev-commit.hypersync.xyz')
 
-deposits_df = asyncio.run(client.get_window_deposits(
+deposits_df = asyncio.run(client.get_window_deposits_v1(
     address='0xe51EF1836Dbef052BfFd2eB3Fe1314365d23129d'))
 
-withdraws_df = asyncio.run(client.get_window_withdraws(
+withdraws_df = asyncio.run(client.get_window_withdraws_v1(
     address='0xe51EF1836Dbef052BfFd2eB3Fe1314365d23129d'))
 
 # extract dataframe columns to lists

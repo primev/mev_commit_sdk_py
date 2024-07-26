@@ -9,12 +9,12 @@ from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMappi
 
 # https://docs.primev.xyz/developers/testnet#contract-addresses
 # oracle contract
-oracle_contract: str = "0x6856Eb630C79D491886E104D328834643B3F69E3".lower()
+oracle_contract_v1: str = "0x6856Eb630C79D491886E104D328834643B3F69E3".lower()
 # block tracker contract
-block_tracker_contract: str = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower()
-bidder_register_contract: str = "0x7ffa86fF89489Bca72Fec2a978e33f9870B2Bd25".lower()
-provider_registry_contract: str = "0x4FC9b98e1A0Ff10de4c2cf294656854F1d5B207D".lower()
-commit_store_contract: str = "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3".lower()
+block_tracker_contract_v1: str = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower()
+bidder_register_contract_v1: str = "0x7ffa86fF89489Bca72Fec2a978e33f9870B2Bd25".lower()
+provider_registry_contract_v1: str = "0x4FC9b98e1A0Ff10de4c2cf294656854F1d5B207D".lower()
+commit_store_contract_v1: str = "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3".lower()
 
 
 def timer(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]]:
@@ -165,7 +165,7 @@ class Hypersync:
         await self.client.collect_parquet('data', query, config)
 
     @timer
-    async def get_new_l1_block_event(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_new_l1_block_event_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         Query for new L1 block events and optionally save the data.
 
@@ -186,7 +186,7 @@ class Hypersync:
             from_block=from_block,
             to_block=to_block,
             logs=[LogSelection(
-                address=[block_tracker_contract], topics=[[topic0]])]
+                address=[block_tracker_contract_v1], topics=[[topic0]])]
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
@@ -195,7 +195,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_window_deposits(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_window_deposits_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         Query for window deposit events and optionally save the data.
 
@@ -223,7 +223,7 @@ class Hypersync:
             from_block=from_block,
             to_block=to_block,
             logs=[LogSelection(
-                address=[bidder_register_contract], topics=topics)]
+                address=[bidder_register_contract_v1], topics=topics)]
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
@@ -236,7 +236,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_window_withdraws(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_window_withdraws_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         Query for window withdrawal events and optionally save the data.
 
@@ -264,7 +264,7 @@ class Hypersync:
             from_block=from_block,
             to_block=to_block,
             logs=[LogSelection(
-                address=[bidder_register_contract], topics=topics)]
+                address=[bidder_register_contract_v1], topics=topics)]
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
@@ -277,7 +277,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_commit_stores(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         get commit store events:
 
@@ -313,7 +313,7 @@ class Hypersync:
             from_block=from_block,
             to_block=to_block,
             logs=[LogSelection(
-                address=[commit_store_contract], topics=topics)]
+                address=[commit_store_contract_v1], topics=topics)]
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
@@ -331,7 +331,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_encrypted_commit_stores(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_encrypted_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         get encrypted commit store events:
 
@@ -347,7 +347,7 @@ class Hypersync:
             to_block=to_block,
             logs=[
                 LogSelection(
-                    address=[commit_store_contract],
+                    address=[commit_store_contract_v1],
                     topics=[[topic0]],
                 )
             ],
@@ -364,7 +364,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_commits_processed(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_commits_processed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)
 
@@ -384,7 +384,8 @@ class Hypersync:
         query = self.create_query(
             from_block=from_block,
             to_block=to_block,
-            logs=[LogSelection(address=[oracle_contract], topics=[[topic0]])]
+            logs=[LogSelection(address=[oracle_contract_v1],
+                               topics=[[topic0]])]
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
@@ -393,7 +394,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_funds_retrieved(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_funds_retrieved_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)"
 
@@ -414,7 +415,7 @@ class Hypersync:
             from_block=from_block,
             to_block=to_block,
             logs=[LogSelection(
-                address=[bidder_register_contract], topics=[[topic0]])]
+                address=[bidder_register_contract_v1], topics=[[topic0]])]
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
@@ -429,7 +430,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_funds_rewarded(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_funds_rewarded_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         `FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)`
 
@@ -450,7 +451,7 @@ class Hypersync:
             from_block=from_block,
             to_block=to_block,
             logs=[LogSelection(
-                address=[bidder_register_contract], topics=[[topic0]])]
+                address=[bidder_register_contract_v1], topics=[[topic0]])]
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
@@ -465,7 +466,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_funds_slashed(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_funds_slashed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         `FundsSlashed(address indexed provider, uint256 amount)`
 
@@ -486,7 +487,7 @@ class Hypersync:
             from_block=from_block,
             to_block=to_block,
             logs=[LogSelection(
-                address=[provider_registry_contract], topics=[[topic0]])]
+                address=[provider_registry_contract_v1], topics=[[topic0]])]
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
