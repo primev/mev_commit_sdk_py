@@ -1,7 +1,6 @@
 import time
 import hypersync
 import polars as pl
-import web3
 
 from dataclasses import dataclass, field
 from mev_commit_sdk_py.helpers import address_to_topic
@@ -182,10 +181,12 @@ class Hypersync:
         from_block = from_block or 0
         event_signature = "NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)"
 
+        topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
             to_block=to_block,
-            logs=[LogSelection(address=[block_tracker_contract])]
+            logs=[LogSelection(
+                address=[block_tracker_contract], topics=[[topic0]])]
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
@@ -210,12 +211,11 @@ class Hypersync:
         to_block = to_block or await self.get_height()
         from_block = from_block or 0
         event_signature = "BidderRegistered(address indexed bidder, uint256 depositedAmount, uint256 windowNumber)"
-        topic = web3.Web3.to_hex(web3.Web3.keccak(
-            text="BidderRegistered(address,uint256,uint256)"))
+        topic0 = hypersync.signature_to_topic0(event_signature)
 
         padded_address = address_to_topic(address.lower()) if address else None
         topics = [
-            [topic]]
+            [topic0]]
         if padded_address:
             topics.append([padded_address])
 
@@ -252,12 +252,11 @@ class Hypersync:
         to_block = to_block or await self.get_height()
         from_block = from_block or 0
         event_signature = "BidderWithdrawal(address indexed bidder, uint256 window, uint256 amount)"
-        topic = web3.Web3.to_hex(web3.Web3.keccak(
-            text="BidderWithdrawal(address, uint256, uint256)"))
+        topic0 = hypersync.signature_to_topic0(event_signature)
 
         padded_address = address_to_topic(address.lower()) if address else None
         topics = [
-            [topic]]
+            [topic0]]
         if padded_address:
             topics.append([padded_address])
 
@@ -302,12 +301,11 @@ class Hypersync:
         to_block = to_block or await self.get_height()
         from_block = from_block or 0
         event_signature = "CommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)"
-        topic = web3.Web3.to_hex(web3.Web3.keccak(
-            text="CommitmentStored(bytes32,address,address,uint256,uint64,bytes32,uint64,uint64,string,string,bytes32,bytes,bytes,uint64,bytes)"))
+        topic0 = hypersync.signature_to_topic0(event_signature)
 
         padded_address = address_to_topic(address.lower()) if address else None
         topics = [
-            [topic]]
+            [topic0]]
         if padded_address:
             topics.append([padded_address])
 
@@ -382,9 +380,7 @@ class Hypersync:
         from_block = from_block or 0
         event_signature = "CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)"
 
-        topic0 = web3.Web3.to_hex(web3.Web3.keccak(
-            text="CommitmentProcessed(bytes32,bool)"
-        ))
+        topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
             to_block=to_block,
@@ -413,9 +409,7 @@ class Hypersync:
         from_block = from_block or 0
         event_signature = "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)"
 
-        topic0 = web3.Web3.to_hex(web3.Web3.keccak(
-            text="FundsRetrieved(bytes32,address,uint256,uint256)"
-        ))
+        topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
             to_block=to_block,
@@ -451,9 +445,7 @@ class Hypersync:
         from_block = from_block or 0
         event_signature = "FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)"
 
-        topic0 = web3.Web3.to_hex(web3.Web3.keccak(
-            text="FundsRewarded(bytes32,address,address,uint256,uint256)"
-        ))
+        topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
             to_block=to_block,
@@ -489,9 +481,7 @@ class Hypersync:
         from_block = from_block or 0
         event_signature = "FundsSlashed(address indexed provider, uint256 amount)"
 
-        topic0 = web3.Web3.to_hex(web3.Web3.keccak(
-            text="FundsSlashed(address,uint256)"
-        ))
+        topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
             to_block=to_block,

@@ -13,7 +13,6 @@ dependencies = [
     "hypersync>=0.7.14",
     "git-changelog>=2.5.2",
     "bump2version>=1.0.1",
-    "web3>=6.20.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"
