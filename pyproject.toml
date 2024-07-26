@@ -7,8 +7,6 @@ dependencies = [
     "polars>=1.0.0",
     "hvplot>=0.9.2",
     "pyarrow>=16.0.0",
-    # "cryo @ https://github.com/primev/cryo/raw/main/wheels/cryo-0.3.2-cp310-cp310-manylinux_2_34_x86_64.whl",
-    "cryo>=0.3.2",
     "python-dotenv>=1.0.1",
     "hypersync>=0.7.14",
     "git-changelog>=2.5.2",
