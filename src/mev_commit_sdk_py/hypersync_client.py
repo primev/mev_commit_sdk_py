@@ -112,7 +112,10 @@ class Hypersync:
             return await self.client.collect_parquet('data', query, config)
         else:
             data = await self.client.collect_arrow(query, config)
-            return pl.from_arrow(data.data.decoded_logs).hstack(pl.from_arrow(data.data.transactions))
+            hstack_logs = pl.from_arrow(data.data.decoded_logs).hstack(
+                pl.from_arrow(data.data.logs).select('transaction_hash'))
+
+            return hstack_logs.rename({'transaction_hash': 'hash'}).join(pl.from_arrow(data.data.transactions), on='hash', how='left')
 
     @timer
     async def get_blocks_txs(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
@@ -219,7 +222,22 @@ class Hypersync:
         )
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature
+            event_signature=event_signature,
+            column_mapping=ColumnMapping(
+                transaction={
+                    TransactionField.GAS_USED: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
+                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
+                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.NONCE: DataType.INT64,
+                    TransactionField.GAS: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.VALUE: DataType.FLOAT64,
+                    TransactionField.CHAIN_ID: DataType.INT64,
+                }
+            )
         )
 
         return await self.collect_data(query, config, save_data)
@@ -261,6 +279,19 @@ class Hypersync:
             column_mapping=ColumnMapping(
                 decoded_log={'depositedAmount': DataType.INT64,
                              'windowNumber': DataType.INT64}
+                # transaction={
+                #     TransactionField.GAS_USED: DataType.FLOAT64,
+                #     TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
+                #     TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
+                #     TransactionField.GAS_PRICE: DataType.FLOAT64,
+                #     TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
+                #     TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
+                #     TransactionField.NONCE: DataType.INT64,
+                #     TransactionField.GAS: DataType.FLOAT64,
+                #     TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
+                #     TransactionField.VALUE: DataType.FLOAT64,
+                #     TransactionField.CHAIN_ID: DataType.INT64,
+                # }
             )
         )
         return await self.collect_data(query, config, save_data)
@@ -302,6 +333,19 @@ class Hypersync:
             column_mapping=ColumnMapping(
                 decoded_log={'amount': DataType.INT64,
                              'window': DataType.INT64}
+                # transaction={
+                #     TransactionField.GAS_USED: DataType.FLOAT64,
+                #     TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
+                #     TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
+                #     TransactionField.GAS_PRICE: DataType.FLOAT64,
+                #     TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
+                #     TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
+                #     TransactionField.NONCE: DataType.INT64,
+                #     TransactionField.GAS: DataType.FLOAT64,
+                #     TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
+                #     TransactionField.VALUE: DataType.FLOAT64,
+                #     TransactionField.CHAIN_ID: DataType.INT64,
+                # }
             )
         )
         return await self.collect_data(query, config, save_data)
@@ -355,6 +399,19 @@ class Hypersync:
                     "decayStartTimeStamp": DataType.UINT64,
                     "decayEndTimeStamp": DataType.UINT64,
                     "dispatchTimestamp": DataType.UINT64,
+                },
+                transaction={
+                    TransactionField.GAS_USED: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
+                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
+                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.NONCE: DataType.INT64,
+                    TransactionField.GAS: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.VALUE: DataType.FLOAT64,
+                    TransactionField.CHAIN_ID: DataType.INT64,
                 }
             )
         )
@@ -388,6 +445,19 @@ class Hypersync:
             column_mapping=ColumnMapping(
                 decoded_log={
                     "dispatchTimestamp": DataType.UINT64,
+                },
+                transaction={
+                    TransactionField.GAS_USED: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
+                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
+                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.NONCE: DataType.INT64,
+                    TransactionField.GAS: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.VALUE: DataType.FLOAT64,
+                    TransactionField.CHAIN_ID: DataType.INT64,
                 }
             )
         )
@@ -420,6 +490,19 @@ class Hypersync:
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
             event_signature=event_signature,
+            # transaction={
+            #     TransactionField.GAS_USED: DataType.FLOAT64,
+            #     TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
+            #     TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
+            #     TransactionField.GAS_PRICE: DataType.FLOAT64,
+            #     TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
+            #     TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
+            #     TransactionField.NONCE: DataType.INT64,
+            #     TransactionField.GAS: DataType.FLOAT64,
+            #     TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
+            #     TransactionField.VALUE: DataType.FLOAT64,
+            #     TransactionField.CHAIN_ID: DataType.INT64,
+            # }
         )
         return await self.collect_data(query, config, save_data)
 
@@ -454,6 +537,19 @@ class Hypersync:
                 decoded_log={
                     "window": DataType.UINT64,
                     "amount": DataType.UINT64
+                },
+                transaction={
+                    TransactionField.GAS_USED: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
+                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
+                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.NONCE: DataType.INT64,
+                    TransactionField.GAS: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.VALUE: DataType.FLOAT64,
+                    TransactionField.CHAIN_ID: DataType.INT64,
                 }
             )
         )
@@ -490,6 +586,19 @@ class Hypersync:
                 decoded_log={
                     "window": DataType.UINT64,
                     "amount": DataType.UINT64
+                },
+                transaction={
+                    TransactionField.GAS_USED: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
+                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
+                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.NONCE: DataType.INT64,
+                    TransactionField.GAS: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.VALUE: DataType.FLOAT64,
+                    TransactionField.CHAIN_ID: DataType.INT64,
                 }
             )
         )
@@ -525,6 +634,19 @@ class Hypersync:
             column_mapping=ColumnMapping(
                 decoded_log={
                     "amount": DataType.UINT64
+                },
+                transaction={
+                    TransactionField.GAS_USED: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
+                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
+                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
+                    TransactionField.NONCE: DataType.INT64,
+                    TransactionField.GAS: DataType.FLOAT64,
+                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
+                    TransactionField.VALUE: DataType.FLOAT64,
+                    TransactionField.CHAIN_ID: DataType.INT64,
                 }
             )
         )
