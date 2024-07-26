@@ -5,7 +5,7 @@ import polars as pl
 from dataclasses import dataclass, field
 from mev_commit_sdk_py.helpers import address_to_topic
 from typing import List, Optional, Callable, Awaitable
-from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMapping, DataType, LogSelection, FieldSelection, LogField
+from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMapping, DataType, LogSelection, FieldSelection, LogField, TransactionSelection
 
 # https://docs.primev.xyz/developers/testnet#contract-addresses
 # oracle contract
@@ -94,9 +94,10 @@ class Hypersync:
             )
         )
 
-    async def collect_data(self, query: hypersync.Query, config: hypersync.StreamConfig, save_data: bool, format: str = 'parquet') -> Optional[pl.DataFrame]:
+    async def collect_data(self, query: hypersync.Query, config: hypersync.StreamConfig, save_data: bool) -> Optional[pl.DataFrame]:
         """
         Collect data using the Hypersync client and returns output either as a polars dataframe or saves to disk as a parquet file.
+        Only works for logs
 
         Args:
             query (hypersync.Query): The query object.
@@ -108,32 +109,52 @@ class Hypersync:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
         """
         if save_data:
-            if format == 'parquet':
-                return await self.client.collect_parquet('data', query, config)
+            return await self.client.collect_parquet('data', query, config)
         else:
             data = await self.client.collect_arrow(query, config)
             return pl.from_arrow(data.data.decoded_logs)
 
     @timer
-    async def get_blocks_txs(self, block_range: int, start_block: int = 0) -> None:
+    async def get_blocks_txs(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
-        Query for blocks and transactions and save results as parquet files.
+        Query for blocks and transactions and optionally save results.
 
         Args:
-            block_range (int): The number of blocks to include in the query.
-            start_block (int): The block number to start the query from.
+            from_block (Optional[int]): The block number to start the query from.
+            to_block (Optional[int]): The block number to end the query at.
+            block_range (Optional[int]): The number of blocks to include in the query.
+            save_data (bool): Whether to save the data to a file.
+
+        Returns:
+            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
         """
-        height = await self.get_height() if start_block == 0 else start_block
+        match (from_block, to_block, block_range):
+            case (None, None, None):
+                # 1.) All values are None = Historical block range
+                to_block = await self.get_height()
+                from_block = 0
+            case (None, None, block_range):
+                # 2.) block_range is specified. Calculates most recent block range
+                to_block = await self.get_height()
+                from_block = to_block - block_range
+            case (None, to_block, block_range):
+                # 3.) block_range and to_block are specified, backfill block range
+                from_block = to_block - block_range
+            case (from_block, to_block, _):
+                # from_block and to_block are specified, arbitrary block range
+                pass
+
         query = hypersync.Query(
-            from_block=height - block_range,
-            to_block=height,
-            transactions=[hypersync.TransactionSelection()],
+            from_block=from_block,
+            to_block=to_block,
+            include_all_blocks=True,
+            transactions=[TransactionSelection()],
             field_selection=hypersync.FieldSelection(
-                transaction=[el.value for el in TransactionField],
-                block=[el.value for el in BlockField],
-            ),
-            include_all_blocks=True
+                block=[e.value for e in BlockField],
+                transaction=[e.value for e in TransactionField],
+            )
         )
+
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
             column_mapping=ColumnMapping(
@@ -147,7 +168,6 @@ class Hypersync:
                     TransactionField.NONCE: DataType.INT64,
                     TransactionField.GAS: DataType.FLOAT64,
                     TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
                     TransactionField.VALUE: DataType.FLOAT64,
                     TransactionField.CHAIN_ID: DataType.INT64,
                 },
@@ -162,7 +182,16 @@ class Hypersync:
                 }
             )
         )
-        await self.client.collect_parquet('data', query, config)
+        if save_data:
+            await self.client.collect_parquet('data', query, config)
+        else:
+            data = await self.client.collect_arrow(query, config)
+            print(f"Collected data: {data}")
+            blocks_df = pl.from_arrow(data.data.blocks)
+            txs_df = pl.from_arrow(data.data.transactions)
+            print(f"Blocks DataFrame shape: {blocks_df.shape}")
+            print(f"Transactions DataFrame shape: {txs_df.shape}")
+            return blocks_df, txs_df
 
     @timer
     async def get_new_l1_block_event_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
