@@ -117,6 +117,23 @@ class Hypersync:
 
             return hstack_logs.rename({'transaction_hash': 'hash'}).join(pl.from_arrow(data.data.transactions), on='hash', how='left')
 
+    async def get_block_range(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None) -> dict[str, int]:
+        match (from_block, to_block, block_range):
+            case (None, None, None):
+                to_block = await self.get_height()
+                from_block = 0
+            case (None, None, block_range):
+                to_block = await self.get_height()
+                from_block = to_block - block_range
+            case (None, to_block, block_range):
+                from_block = to_block - block_range
+            case (from_block, to_block, _):
+                pass
+        return {
+            'from_block': from_block,
+            'to_block': to_block
+        }
+
     @timer
     async def get_blocks_txs(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
@@ -131,21 +148,8 @@ class Hypersync:
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
         """
-        match (from_block, to_block, block_range):
-            case (None, None, None):
-                # 1.) All values are None = Historical block range
-                to_block = await self.get_height()
-                from_block = 0
-            case (None, None, block_range):
-                # 2.) block_range is specified. Calculates most recent block range
-                to_block = await self.get_height()
-                from_block = to_block - block_range
-            case (None, to_block, block_range):
-                # 3.) block_range and to_block are specified, backfill block range
-                from_block = to_block - block_range
-            case (from_block, to_block, _):
-                # from_block and to_block are specified, arbitrary block range
-                pass
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
 
         query = hypersync.Query(
             from_block=from_block,
@@ -197,22 +201,23 @@ class Hypersync:
             return blocks_df, txs_df
 
     @timer
-    async def get_new_l1_block_event_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_new_l1_block_event_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         Query for new L1 block events and optionally save the data.
 
         Args:
             from_block (Optional[int]): The block number to start the query from.
             to_block (Optional[int]): The block number to end the query at.
+            block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
         """
-        to_block = to_block or await self.get_height()
-        from_block = from_block or 0
-        event_signature = "NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)"
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
 
+        event_signature = "NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)"
         topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
@@ -239,11 +244,10 @@ class Hypersync:
                 }
             )
         )
-
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_window_deposits_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_window_deposits_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         Query for window deposit events and optionally save the data.
 
@@ -251,19 +255,20 @@ class Hypersync:
             address (Optional[str]): The address to filter by.
             from_block (Optional[int]): The block number to start the query from.
             to_block (Optional[int]): The block number to end the query at.
+            block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
         """
-        to_block = to_block or await self.get_height()
-        from_block = from_block or 0
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
+
         event_signature = "BidderRegistered(address indexed bidder, uint256 depositedAmount, uint256 windowNumber)"
         topic0 = hypersync.signature_to_topic0(event_signature)
 
         padded_address = address_to_topic(address.lower()) if address else None
-        topics = [
-            [topic0]]
+        topics = [[topic0]]
         if padded_address:
             topics.append([padded_address])
 
@@ -279,25 +284,12 @@ class Hypersync:
             column_mapping=ColumnMapping(
                 decoded_log={'depositedAmount': DataType.INT64,
                              'windowNumber': DataType.INT64}
-                # transaction={
-                #     TransactionField.GAS_USED: DataType.FLOAT64,
-                #     TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
-                #     TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
-                #     TransactionField.GAS_PRICE: DataType.FLOAT64,
-                #     TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
-                #     TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
-                #     TransactionField.NONCE: DataType.INT64,
-                #     TransactionField.GAS: DataType.FLOAT64,
-                #     TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-                #     TransactionField.VALUE: DataType.FLOAT64,
-                #     TransactionField.CHAIN_ID: DataType.INT64,
-                # }
             )
         )
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_window_withdraws_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_window_withdraws_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         Query for window withdrawal events and optionally save the data.
 
@@ -305,19 +297,20 @@ class Hypersync:
             address (Optional[str]): The address to filter by.
             from_block (Optional[int]): The block number to start the query from.
             to_block (Optional[int]): The block number to end the query at.
+            block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
         """
-        to_block = to_block or await self.get_height()
-        from_block = from_block or 0
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
+
         event_signature = "BidderWithdrawal(address indexed bidder, uint256 window, uint256 amount)"
         topic0 = hypersync.signature_to_topic0(event_signature)
 
         padded_address = address_to_topic(address.lower()) if address else None
-        topics = [
-            [topic0]]
+        topics = [[topic0]]
         if padded_address:
             topics.append([padded_address])
 
@@ -333,53 +326,52 @@ class Hypersync:
             column_mapping=ColumnMapping(
                 decoded_log={'amount': DataType.INT64,
                              'window': DataType.INT64}
-                # transaction={
-                #     TransactionField.GAS_USED: DataType.FLOAT64,
-                #     TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
-                #     TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
-                #     TransactionField.GAS_PRICE: DataType.FLOAT64,
-                #     TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
-                #     TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
-                #     TransactionField.NONCE: DataType.INT64,
-                #     TransactionField.GAS: DataType.FLOAT64,
-                #     TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-                #     TransactionField.VALUE: DataType.FLOAT64,
-                #     TransactionField.CHAIN_ID: DataType.INT64,
-                # }
             )
         )
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
-        get commit store events:
+        Retrieve CommitmentStored events from the blockchain.
 
-        `CommitmentStored(
-        bytes32 indexed commitmentIndex,
-        address bidder,
-        address commiter,
-        uint256 bid,
-        uint64 blockNumber,
-        bytes32 bidHash,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        string txnHash,
-        string revertingTxHashes,
-        bytes32 commitmentHash,
-        bytes bidSignature,
-        bytes commitmentSignature,
-        uint64 dispatchTimestamp,
-        bytes sharedSecretKey)`
+        Args:
+            address (Optional[str]): The specific address to filter events by. If None, events for all addresses are retrieved.
+            from_block (Optional[int]): The block number to start the query from. Defaults to 0 if not provided.
+            to_block (Optional[int]): The block number to end the query at. Defaults to the latest block if not provided.
+            block_range (Optional[int]): The number of blocks to include in the query.
+            save_data (bool): Whether to save the retrieved data to a file. Defaults to False.
+
+        Returns:
+            Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
+
+        Event Signature:
+            CommitmentStored(
+                bytes32 indexed commitmentIndex,
+                address bidder,
+                address commiter,
+                uint256 bid,
+                uint64 blockNumber,
+                bytes32 bidHash,
+                uint64 decayStartTimeStamp,
+                uint64 decayEndTimeStamp,
+                string txnHash,
+                string revertingTxHashes,
+                bytes32 commitmentHash,
+                bytes bidSignature,
+                bytes commitmentSignature,
+                uint64 dispatchTimestamp,
+                bytes sharedSecretKey
+            )
         """
-        to_block = to_block or await self.get_height()
-        from_block = from_block or 0
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
+
         event_signature = "CommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)"
         topic0 = hypersync.signature_to_topic0(event_signature)
 
         padded_address = address_to_topic(address.lower()) if address else None
-        topics = [
-            [topic0]]
+        topics = [[topic0]]
         if padded_address:
             topics.append([padded_address])
 
@@ -418,14 +410,31 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_encrypted_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_encrypted_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
-        get encrypted commit store events:
+        Retrieve EncryptedCommitmentStored events from the blockchain.
 
-        `EncryptedCommitmentStored(bytes32 indexed commitmentIndex, address commiter, bytes32 commitmentDigest, bytes commitmentSignature, uint64 dispatchTimestamp)`
+        Args:
+            address (Optional[str]): The specific address to filter events by. If None, events for all addresses are retrieved.
+            from_block (Optional[int]): The block number to start the query from. Defaults to 0 if not provided.
+            to_block (Optional[int]): The block number to end the query at. Defaults to the latest block if not provided.
+            block_range (Optional[int]): The number of blocks to include in the query.
+            save_data (bool): Whether to save the retrieved data to a file. Defaults to False.
+
+        Returns:
+            Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
+
+        Event Signature:
+            EncryptedCommitmentStored(
+                bytes32 indexed commitmentIndex,
+                address commiter,
+                bytes32 commitmentDigest,
+                bytes commitmentSignature,
+                uint64 dispatchTimestamp
+            )
         """
-        to_block = to_block or await self.get_height()
-        from_block = from_block or 0
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
 
         event_signature = "EncryptedCommitmentStored(bytes32 indexed commitmentIndex, address commiter, bytes32 commitmentDigest, bytes commitmentSignature, uint64 dispatchTimestamp)"
         topic0 = hypersync.signature_to_topic0(event_signature)
@@ -464,22 +473,29 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_commits_processed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_commits_processed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
-        CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)
+        Retrieve CommitmentProcessed events from the blockchain.
 
         Args:
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            save_data (bool): Whether to save the data to a file.
+            from_block (Optional[int]): The block number to start the query from. Defaults to 0 if not provided.
+            to_block (Optional[int]): The block number to end the query at. Defaults to the latest block if not provided.
+            block_range (Optional[int]): The number of blocks to include in the query.
+            save_data (bool): Whether to save the retrieved data to a file. Defaults to False.
 
         Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
-        """
-        to_block = to_block or await self.get_height()
-        from_block = from_block or 0
-        event_signature = "CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)"
+            Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
 
+        Event Signature:
+            CommitmentProcessed(
+                bytes32 indexed commitmentIndex,
+                bool isSlash
+            )
+        """
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
+
+        event_signature = "CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)"
         topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
@@ -490,39 +506,27 @@ class Hypersync:
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
             event_signature=event_signature,
-            # transaction={
-            #     TransactionField.GAS_USED: DataType.FLOAT64,
-            #     TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
-            #     TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
-            #     TransactionField.GAS_PRICE: DataType.FLOAT64,
-            #     TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
-            #     TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
-            #     TransactionField.NONCE: DataType.INT64,
-            #     TransactionField.GAS: DataType.FLOAT64,
-            #     TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-            #     TransactionField.VALUE: DataType.FLOAT64,
-            #     TransactionField.CHAIN_ID: DataType.INT64,
-            # }
         )
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_funds_retrieved_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_funds_retrieved_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)"
 
         Args:
             from_block (Optional[int]): The block number to start the query from.
             to_block (Optional[int]): The block number to end the query at.
+            block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
         """
-        to_block = to_block or await self.get_height()
-        from_block = from_block or 0
-        event_signature = "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)"
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
 
+        event_signature = "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)"
         topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
@@ -556,22 +560,23 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_funds_rewarded_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_funds_rewarded_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         `FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)`
 
         Args:
             from_block (Optional[int]): The block number to start the query from.
             to_block (Optional[int]): The block number to end the query at.
+            block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
         """
-        to_block = to_block or await self.get_height()
-        from_block = from_block or 0
-        event_signature = "FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)"
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
 
+        event_signature = "FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)"
         topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
@@ -605,22 +610,23 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_funds_slashed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_funds_slashed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
         """
         `FundsSlashed(address indexed provider, uint256 amount)`
 
         Args:
             from_block (Optional[int]): The block number to start the query from.
             to_block (Optional[int]): The block number to end the query at.
+            block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
         """
-        to_block = to_block or await self.get_height()
-        from_block = from_block or 0
-        event_signature = "FundsSlashed(address indexed provider, uint256 amount)"
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
 
+        event_signature = "FundsSlashed(address indexed provider, uint256 amount)"
         topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
