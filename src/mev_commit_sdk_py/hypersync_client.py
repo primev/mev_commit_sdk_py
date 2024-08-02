@@ -103,7 +103,6 @@ class Hypersync:
             query (hypersync.Query): The query object.
             config (hypersync.StreamConfig): The stream configuration.
             save_data (bool): Whether to save the data to a file.
-            format (str): The format to save the data in ('parquet' or 'arrow').
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
@@ -112,10 +111,20 @@ class Hypersync:
             return await self.client.collect_parquet('data', query, config)
         else:
             data = await self.client.collect_arrow(query, config)
-            hstack_logs = pl.from_arrow(data.data.decoded_logs).hstack(
-                pl.from_arrow(data.data.logs).select('transaction_hash'))
+            decoded_logs_df = pl.from_arrow(data.data.decoded_logs)
+            logs_df = pl.from_arrow(data.data.logs)
+            transactions_df = pl.from_arrow(data.data.transactions)
 
-            return hstack_logs.rename({'transaction_hash': 'hash'}).join(pl.from_arrow(data.data.transactions), on='hash', how='left')
+            # Check if the dataframes are empty
+            if decoded_logs_df.is_empty() or logs_df.is_empty() or transactions_df.is_empty():
+                return None
+
+            hstack_logs = decoded_logs_df.hstack(
+                logs_df.select('transaction_hash'))
+            result_df = hstack_logs.rename({'transaction_hash': 'hash'}).join(
+                transactions_df, on='hash', how='left')
+
+            return result_df
 
     async def get_block_range(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None) -> dict[str, int]:
         match (from_block, to_block, block_range):
