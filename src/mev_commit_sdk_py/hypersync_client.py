@@ -31,11 +31,14 @@ def timer(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]
         Callable[..., Awaitable[None]]: The wrapped function with timing functionality.
     """
     async def wrapper(*args, **kwargs):
+        # Extract print_time from kwargs, defaulting to True
+        print_time = kwargs.pop('print_time', True)
         start_time = time.time()  # Start the timer
         result = await func(*args, **kwargs)
         end_time = time.time()  # End the timer
         duration = end_time - start_time
-        print(f"{func.__name__} query finished in {duration:.2f} seconds.")
+        if print_time:
+            print(f"{func.__name__} query finished in {duration:.2f} seconds.")
         return result
     return wrapper
 
@@ -43,7 +46,7 @@ def timer(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]
 @dataclass
 class Hypersync:
     """
-    Client wrapper aroound Hypersync Indexer to get transactions, blocks, and events.
+    Client wrapper around Hypersync Indexer to get transactions, blocks, and events.
     """
     url: str
     client: HypersyncClient = field(init=False)
@@ -144,7 +147,7 @@ class Hypersync:
         }
 
     @timer
-    async def get_blocks_txs(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_blocks_txs(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
         Query for blocks and transactions and optionally save results.
 
@@ -153,6 +156,7 @@ class Hypersync:
             to_block (Optional[int]): The block number to end the query at.
             block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
+            print_time (bool): Whether to print the execution time.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
@@ -210,7 +214,7 @@ class Hypersync:
             return blocks_df, txs_df
 
     @timer
-    async def get_new_l1_block_event_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_new_l1_block_event_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
         Query for new L1 block events and optionally save the data.
 
@@ -219,6 +223,7 @@ class Hypersync:
             to_block (Optional[int]): The block number to end the query at.
             block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
+            print_time (bool): Whether to print the execution time.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
@@ -256,7 +261,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_window_deposits_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_window_deposits_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
         Query for window deposit events and optionally save the data.
 
@@ -266,6 +271,7 @@ class Hypersync:
             to_block (Optional[int]): The block number to end the query at.
             block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
+            print_time (bool): Whether to print the execution time.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
@@ -298,7 +304,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_window_withdraws_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_window_withdraws_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
         Query for window withdrawal events and optionally save the data.
 
@@ -308,6 +314,7 @@ class Hypersync:
             to_block (Optional[int]): The block number to end the query at.
             block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
+            print_time (bool): Whether to print the execution time.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
@@ -340,7 +347,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
         Retrieve CommitmentStored events from the blockchain.
 
@@ -350,6 +357,7 @@ class Hypersync:
             to_block (Optional[int]): The block number to end the query at. Defaults to the latest block if not provided.
             block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the retrieved data to a file. Defaults to False.
+            print_time (bool): Whether to print the execution time.
 
         Returns:
             Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
@@ -419,7 +427,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_encrypted_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_encrypted_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
         Retrieve EncryptedCommitmentStored events from the blockchain.
 
@@ -429,6 +437,7 @@ class Hypersync:
             to_block (Optional[int]): The block number to end the query at. Defaults to the latest block if not provided.
             block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the retrieved data to a file. Defaults to False.
+            print_time (bool): Whether to print the execution time.
 
         Returns:
             Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
@@ -482,7 +491,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_commits_processed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_commits_processed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
         Retrieve CommitmentProcessed events from the blockchain.
 
@@ -491,6 +500,7 @@ class Hypersync:
             to_block (Optional[int]): The block number to end the query at. Defaults to the latest block if not provided.
             block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the retrieved data to a file. Defaults to False.
+            print_time (bool): Whether to print the execution time.
 
         Returns:
             Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
@@ -519,7 +529,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_funds_retrieved_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_funds_retrieved_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
         "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)"
 
@@ -528,6 +538,7 @@ class Hypersync:
             to_block (Optional[int]): The block number to end the query at.
             block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
+            print_time (bool): Whether to print the execution time.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
@@ -569,7 +580,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_funds_rewarded_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_funds_rewarded_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
         `FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)`
 
@@ -578,6 +589,7 @@ class Hypersync:
             to_block (Optional[int]): The block number to end the query at.
             block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
+            print_time (bool): Whether to print the execution time.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
@@ -619,7 +631,7 @@ class Hypersync:
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def get_funds_slashed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False) -> Optional[pl.DataFrame]:
+    async def get_funds_slashed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
         `FundsSlashed(address indexed provider, uint256 amount)`
 
@@ -628,6 +640,7 @@ class Hypersync:
             to_block (Optional[int]): The block number to end the query at.
             block_range (Optional[int]): The number of blocks to include in the query.
             save_data (bool): Whether to save the data to a file.
+            print_time (bool): Whether to print the execution time.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
