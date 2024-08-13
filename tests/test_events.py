@@ -52,7 +52,8 @@ class TestHypersyncEvents(unittest.TestCase):
             commits_processed.shape[0], 0, "Commits processed should not be empty")
 
     def test_funds_retrieved(self):
-        funds_retrieved = asyncio.run(self.client.get_funds_retrieved_v1())
+        funds_retrieved = asyncio.run(
+            self.client.get_funds_retrieved_v1())
         self.assertIsInstance(funds_retrieved, pl.DataFrame)
         self.assertGreater(
             funds_retrieved.shape[0], 0, "Funds retrieved should not be empty")
