@@ -349,7 +349,7 @@ class Hypersync:
     @timer
     async def get_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
-        Retrieve CommitmentStored events from the blockchain.
+        Retrieve OpenedCommitmentStored events from the blockchain.
 
         Args:
             address (Optional[str]): The specific address to filter events by. If None, events for all addresses are retrieved.
@@ -363,7 +363,7 @@ class Hypersync:
             Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
 
         Event Signature:
-            CommitmentStored(
+            OpenedCommitmentStored(
             bytes32 indexed commitmentIndex, 
             address bidder, 
             address commiter, 
@@ -384,7 +384,7 @@ class Hypersync:
         block_range_dict = await self.get_block_range(from_block, to_block, block_range)
         from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
 
-        event_signature = "CommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)"
+        event_signature = "OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)"
         topic0 = hypersync.signature_to_topic0(event_signature)
 
         padded_address = address_to_topic(address.lower()) if address else None
@@ -429,7 +429,7 @@ class Hypersync:
     @timer
     async def get_encrypted_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
-        Retrieve EncryptedCommitmentStored events from the blockchain.
+        Retrieve UnopenedCommitments events from the blockchain.
 
         Args:
             address (Optional[str]): The specific address to filter events by. If None, events for all addresses are retrieved.
@@ -443,7 +443,7 @@ class Hypersync:
             Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
 
         Event Signature:
-            EncryptedCommitmentStored(
+            UnopenedCommitments(
                 bytes32 indexed commitmentIndex,
                 address commiter,
                 bytes32 commitmentDigest,
@@ -454,7 +454,7 @@ class Hypersync:
         block_range_dict = await self.get_block_range(from_block, to_block, block_range)
         from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
 
-        event_signature = "EncryptedCommitmentStored(bytes32 indexed commitmentIndex, address commiter, bytes32 commitmentDigest, bytes commitmentSignature, uint64 dispatchTimestamp)"
+        event_signature = "UnopenedCommitmentStored(bytes32 indexed commitmentIndex,address committer,bytes32 commitmentDigest,bytes commitmentSignature,uint64 dispatchTimestamp)"
         topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
             from_block=from_block,
