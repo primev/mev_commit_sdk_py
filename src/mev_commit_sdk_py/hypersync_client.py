@@ -364,21 +364,21 @@ class Hypersync:
 
         Event Signature:
             CommitmentStored(
-                bytes32 indexed commitmentIndex,
-                address bidder,
-                address commiter,
-                uint256 bid,
-                uint64 blockNumber,
-                bytes32 bidHash,
-                uint64 decayStartTimeStamp,
-                uint64 decayEndTimeStamp,
-                string txnHash,
-                string revertingTxHashes,
-                bytes32 commitmentHash,
-                bytes bidSignature,
-                bytes commitmentSignature,
-                uint64 dispatchTimestamp,
-                bytes sharedSecretKey
+            bytes32 indexed commitmentIndex, 
+            address bidder, 
+            address commiter, 
+            uint256 bid, 
+            uint64 blockNumber, 
+            bytes32 bidHash, 
+            uint64 decayStartTimeStamp, 
+            uint64 decayEndTimeStamp, 
+            string txnHash, 
+            string revertingTxHashes, 
+            bytes32 commitmentHash, 
+            bytes bidSignature, 
+            bytes commitmentSignature, 
+            uint64 dispatchTimestamp, 
+            bytes sharedSecretKey
             )
         """
         block_range_dict = await self.get_block_range(from_block, to_block, block_range)
