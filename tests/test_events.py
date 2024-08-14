@@ -70,6 +70,25 @@ class TestHypersyncEvents(unittest.TestCase):
         self.assertGreater(
             funds_slashed.shape[0], 0, "Funds slashed should not be empty")
 
+    def test_funds_deposited(self):
+        funds_deposited = asyncio.run(self.client.get_funds_deposited_v1())
+        self.assertIsInstance(funds_deposited, pl.DataFrame)
+        self.assertGreater(
+            funds_deposited.shape[0], 0, "Funds deposited should not be empty")
+
+    def test_withdraw(self):
+        withdraw = asyncio.run(self.client.get_withdraw_v1())
+        self.assertIsInstance(withdraw, pl.DataFrame)
+        self.assertGreater(
+            withdraw.shape[0], 0, "Withdraw events should not be empty")
+
+    def test_provider_registered(self):
+        provider_registered = asyncio.run(
+            self.client.get_provider_registered_v1())
+        self.assertIsInstance(provider_registered, pl.DataFrame)
+        self.assertGreater(
+            provider_registered.shape[0], 0, "Provider registered events should not be empty")
+
 
 if __name__ == '__main__':
     unittest.main()
