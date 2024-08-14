@@ -5,40 +5,132 @@ import polars as pl
 from dataclasses import dataclass, field
 from mev_commit_sdk_py.helpers import address_to_topic
 from typing import List, Optional, Callable, Awaitable
-from hypersync import BlockField, TransactionField, HypersyncClient, ColumnMapping, DataType, LogSelection, FieldSelection, LogField, TransactionSelection
+from enum import Enum
 
-# https://docs.primev.xyz/developers/testnet#contract-addresses
-# oracle contract
-oracle_contract_v1: str = "0x6856Eb630C79D491886E104D328834643B3F69E3".lower()
-# block tracker contract
-block_tracker_contract_v1: str = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower()
-bidder_register_contract_v1: str = "0x7ffa86fF89489Bca72Fec2a978e33f9870B2Bd25".lower()
-provider_registry_contract_v1: str = "0x4FC9b98e1A0Ff10de4c2cf294656854F1d5B207D".lower()
-commit_store_contract_v1: str = "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3".lower()
+# Contract addresses for different components of the protocol
+
+
+class Contracts(Enum):
+    ORACLE = "0x6856Eb630C79D491886E104D328834643B3F69E3".lower()
+    BLOCK_TRACKER = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower()
+    BIDDER_REGISTER = "0x7ffa86fF89489Bca72Fec2a978e33f9870B2Bd25".lower()
+    PROVIDER_REGISTRY = "0x4FC9b98e1A0Ff10de4c2cf294656854F1d5B207D".lower()
+    COMMIT_STORE = "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3".lower()
+
+
+# Event configurations with event names as keys, including signatures, contracts, and optional column mappings
+EVENT_CONFIG = {
+    "NewL1Block": {
+        "signature": "NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)",
+        "contract": Contracts.BLOCK_TRACKER,
+    },
+
+    "CommitmentProcessed": {
+        "signature": "CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)",
+        "contract": Contracts.ORACLE,
+    },
+
+    "BidderRegistered": {
+        "signature": "BidderRegistered(address indexed bidder, uint256 depositedAmount, uint256 windowNumber)",
+        "contract": Contracts.BIDDER_REGISTER,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={'depositedAmount': hypersync.DataType.INT64,
+                         'windowNumber': hypersync.DataType.INT64}
+        )
+    },
+    "BidderWithdrawal": {
+        "signature": "BidderWithdrawal(address indexed bidder, uint256 window, uint256 amount)",
+        "contract": Contracts.BIDDER_REGISTER,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={'amount': hypersync.DataType.INT64,
+                         'window': hypersync.DataType.INT64}
+        )
+    },
+    "OpenedCommitmentStored": {
+        "signature": "OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)",
+        "contract": Contracts.COMMIT_STORE,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={
+                "bid": hypersync.DataType.UINT64,
+                "blockNumber": hypersync.DataType.UINT64,
+                "decayStartTimeStamp": hypersync.DataType.UINT64,
+                "decayEndTimeStamp": hypersync.DataType.UINT64,
+                "dispatchTimestamp": hypersync.DataType.UINT64,
+            }
+        )
+    },
+    "FundsRetrieved": {
+        "signature": "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)",
+        "contract": Contracts.BIDDER_REGISTER,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"window": hypersync.DataType.UINT64,
+                         "amount": hypersync.DataType.UINT64}
+        )
+    },
+    "FundsRewarded": {
+        "signature": "FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)",
+        "contract": Contracts.BIDDER_REGISTER,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"window": hypersync.DataType.UINT64,
+                         "amount": hypersync.DataType.UINT64}
+        )
+    },
+    "FundsSlashed": {
+        "signature": "FundsSlashed(address indexed provider, uint256 amount)",
+        "contract": Contracts.PROVIDER_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"amount": hypersync.DataType.UINT64}
+        )
+    },
+    "FundsDeposited": {
+        "signature": "FundsDeposited(address indexed provider, uint256 amount)",
+        "contract": Contracts.PROVIDER_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"amount": hypersync.DataType.UINT64}
+        )
+    },
+    "Withdraw": {
+        "signature": "Withdraw(address indexed provider, uint256 amount)",
+        "contract": Contracts.PROVIDER_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"amount": hypersync.DataType.UINT64}
+        )
+    },
+    "ProviderRegistered": {
+        "signature": "ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey)",
+        "contract": Contracts.PROVIDER_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"stakedAmount": hypersync.DataType.UINT64}
+        )
+    },
+    "UnopenedCommitmentStored": {
+        "signature": "UnopenedCommitmentStored(bytes32 indexed commitmentIndex,address committer,bytes32 commitmentDigest,bytes commitmentSignature,uint64 dispatchTimestamp)",
+        "contract": Contracts.COMMIT_STORE,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"dispatchTimestamp": hypersync.DataType.UINT64}
+        )
+    }
+}
 
 
 def timer(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]]:
     """
-    A decorator that measures the execution time of an asynchronous function.
-
-    This decorator prints the time taken for the wrapped function to execute.
-    It is useful for performance monitoring and debugging.
+    A decorator to measure and print the execution time of an asynchronous function.
 
     Args:
-        func (Callable[..., Awaitable[None]]): The asynchronous function to be wrapped.
+        func (Callable[..., Awaitable[None]]): The asynchronous function to measure.
 
     Returns:
         Callable[..., Awaitable[None]]: The wrapped function with timing functionality.
     """
     async def wrapper(*args, **kwargs):
-        # Extract print_time from kwargs, defaulting to True
         print_time = kwargs.pop('print_time', True)
-        start_time = time.time()  # Start the timer
+        start_time = time.time()
         result = await func(*args, **kwargs)
-        end_time = time.time()  # End the timer
-        duration = end_time - start_time
+        end_time = time.time()
         if print_time:
-            print(f"{func.__name__} query finished in {duration:.2f} seconds.")
+            print(f"{func.__name__} query finished in {
+                  end_time - start_time:.2f} seconds.")
         return result
     return wrapper
 
@@ -46,23 +138,19 @@ def timer(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]
 @dataclass
 class Hypersync:
     """
-    Client wrapper around Hypersync Indexer to get transactions, blocks, and events.
+    A client wrapper around Hypersync Indexer to query transactions, blocks, and events from the blockchain.
+
+    Attributes:
+        url (str): The URL of the Hypersync service.
+        client (hypersync.HypersyncClient): The Hypersync client instance, initialized in __post_init__.
     """
     url: str
-    client: HypersyncClient = field(init=False)
-    transactions: List[hypersync.TransactionField] = field(
-        default_factory=list)
-    blocks: List[hypersync.BlockField] = field(default_factory=list)
+    client: hypersync.HypersyncClient = field(init=False)
 
     def __post_init__(self):
-        """
-        Initialize the HypersyncClient after the dataclass is created.
-        """
-        self.client = HypersyncClient(
-            hypersync.ClientConfig(
-                url=self.url
-            )
-        )
+        """Initialize the Hypersync client after the dataclass is instantiated."""
+        self.client = hypersync.HypersyncClient(
+            hypersync.ClientConfig(url=self.url))
 
     async def get_height(self) -> int:
         """
@@ -73,42 +161,42 @@ class Hypersync:
         """
         return await self.client.get_height()
 
-    def create_query(self, from_block: int, to_block: int, logs: List[LogSelection], transactions: Optional[List[hypersync.TransactionSelection]] = None) -> hypersync.Query:
+    def create_query(self, from_block: int, to_block: int, logs: List[hypersync.LogSelection], transactions: Optional[List[hypersync.TransactionSelection]] = None) -> hypersync.Query:
         """
-        Create a hypersync query object.
+        Create a Hypersync query object for querying blockchain data.
 
         Args:
-            from_block (int): The starting block number.
-            to_block (int): The ending block number.
-            logs (List[LogSelection]): The log selections for the query.
-            transactions (Optional[List[hypersync.TransactionSelection]]): The transaction selections for the query.
+            from_block (int): The starting block number for the query.
+            to_block (int): The ending block number for the query.
+            logs (List[hypersync.LogSelection]): A list of log selections to filter the query.
+            transactions (Optional[List[hypersync.TransactionSelection]]): Optional transaction selections for the query.
 
         Returns:
-            hypersync.Query: The created query object.
+            hypersync.Query: The constructed query object.
         """
         return hypersync.Query(
             from_block=from_block,
             to_block=to_block,
             logs=logs,
             transactions=transactions or [],
-            field_selection=FieldSelection(
-                log=[e.value for e in LogField],
-                transaction=[e.value for e in TransactionField]
+            field_selection=hypersync.FieldSelection(
+                log=[e.value for e in hypersync.LogField],
+                transaction=[e.value for e in hypersync.TransactionField]
             )
         )
 
-    async def collect_data(self, query: hypersync.Query, config: hypersync.StreamConfig, save_data: bool) -> Optional[pl.DataFrame]:
+    async def collect_data(self, query: hypersync.Query, config: hypersync.StreamConfig, save_data: bool, tx_data: bool = False) -> Optional[pl.DataFrame]:
         """
-        Collect data using the Hypersync client and returns output either as a polars dataframe or saves to disk as a parquet file.
-        Only works for logs
+        Collect data using the Hypersync client and return it as a Polars DataFrame or save it as a parquet file.
 
         Args:
-            query (hypersync.Query): The query object.
-            config (hypersync.StreamConfig): The stream configuration.
-            save_data (bool): Whether to save the data to a file.
+            query (hypersync.Query): The query object to execute.
+            config (hypersync.StreamConfig): The configuration for the data stream.
+            save_data (bool): Whether to save the data as a parquet file.
+            tx_data (bool): Whether to include transaction data in the result.
 
         Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
+            Optional[pl.DataFrame]: The collected data as a Polars DataFrame, or None if no data is returned.
         """
         if save_data:
             return await self.client.collect_parquet('data', query, config)
@@ -118,675 +206,162 @@ class Hypersync:
             logs_df = pl.from_arrow(data.data.logs)
             transactions_df = pl.from_arrow(data.data.transactions)
 
-            # Check if the dataframes are empty
             if decoded_logs_df.is_empty() or logs_df.is_empty() or transactions_df.is_empty():
                 return None
-
-            hstack_logs = decoded_logs_df.hstack(
-                logs_df.select('transaction_hash'))
-            result_df = hstack_logs.rename({'transaction_hash': 'hash'}).join(
-                transactions_df, on='hash', how='left')
-
-            return result_df
+            if tx_data:
+                result_df = decoded_logs_df.hstack(
+                    logs_df.select('transaction_hash')
+                ).rename({'transaction_hash': 'hash'}).join(
+                    transactions_df, on='hash', how='left'
+                )
+                return result_df
+            else:
+                return decoded_logs_df
 
     async def get_block_range(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None) -> dict[str, int]:
-        match (from_block, to_block, block_range):
-            case (None, None, None):
-                to_block = await self.get_height()
-                from_block = 0
-            case (None, None, block_range):
-                to_block = await self.get_height()
-                from_block = to_block - block_range
-            case (None, to_block, block_range):
-                from_block = to_block - block_range
-            case (from_block, to_block, _):
-                pass
-        return {
-            'from_block': from_block,
-            'to_block': to_block
-        }
+        """
+        Determine the block range to be used in a query.
+
+        Args:
+            from_block (Optional[int]): The starting block number, optional.
+            to_block (Optional[int]): The ending block number, optional.
+            block_range (Optional[int]): The range of blocks, optional.
+
+        Returns:
+            dict[str, int]: A dictionary containing 'from_block' and 'to_block'.
+        """
+        to_block = to_block or await self.get_height()
+        from_block = from_block or (
+            to_block - block_range if block_range else 0)
+        return {'from_block': from_block, 'to_block': to_block}
+
+    def create_event_query(self, event_signature: str, from_block: int, to_block: int, address: Optional[str] = None) -> hypersync.Query:
+        """
+        Create a query for a specific event based on the event signature.
+
+        Args:
+            event_signature (str): The event signature to query.
+            from_block (int): The starting block number for the query.
+            to_block (int): The ending block number for the query.
+            address (Optional[str]): Optional address to filter the event logs.
+
+        Returns:
+            hypersync.Query: The constructed query object.
+
+        Raises:
+            ValueError: If the event signature is not supported.
+        """
+        # Find the event configuration using the signature
+        config = next((v for k, v in EVENT_CONFIG.items()
+                      if v["signature"] == event_signature), None)
+        if not config:
+            raise ValueError(f"Unsupported event signature: {event_signature}")
+
+        topic0 = hypersync.signature_to_topic0(event_signature)
+        topics = [[topic0]]
+        if address:
+            topics.append([address_to_topic(address.lower())])
+
+        return self.create_query(
+            from_block=from_block,
+            to_block=to_block,
+            logs=[hypersync.LogSelection(
+                address=[config["contract"].value], topics=topics)]
+        )
+
+    @timer
+    async def execute_event_query(self, event_name: str, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True, address: Optional[str] = None) -> Optional[pl.DataFrame]:
+        """
+        Execute a query for a specific event by its name and collect the data.
+
+        Available Events:
+            - "NewL1Block": Tracks new L1 block events.
+            - "CommitmentProcessed": Tracks when commitments are processed.
+            - "BidderRegistered": Tracks bidder registration with deposited amount.
+            - "BidderWithdrawal": Tracks bidder withdrawals.
+            - "OpenedCommitmentStored": Tracks when opened commitments are stored.
+            - "FundsRetrieved": Tracks when funds are retrieved.
+            - "FundsRewarded": Tracks when funds are rewarded.
+            - "FundsSlashed": Tracks when funds are slashed from a provider.
+            - "FundsDeposited": Tracks when funds are deposited by a provider.
+            - "Withdraw": Tracks provider withdrawals.
+            - "ProviderRegistered": Tracks when a provider is registered.
+            - "UnopenedCommitmentStored": Tracks when unopened commitments are stored.
+
+        Args:
+            event_name (str): The name of the event to query.
+            from_block (Optional[int]): The starting block number, optional.
+            to_block (Optional[int]): The ending block number, optional.
+            block_range (Optional[int]): The range of blocks to query, optional.
+            save_data (bool): Whether to save the data as a parquet file.
+            print_time (bool): Whether to print the execution time of the query.
+            address (Optional[str]): Optional address to filter the event logs.
+
+        Returns:
+            Optional[pl.DataFrame]: The collected data as a Polars DataFrame, or None if no data is returned.
+
+        Raises:
+            ValueError: If the event name is not supported or no data is returned.
+        """
+        # Retrieve the event configuration using the event name
+        event_config = EVENT_CONFIG.get(event_name)
+        if not event_config:
+            raise ValueError(f"Unsupported event name: {event_name}")
+
+        # Determine the block range for the query
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+        event_signature = event_config['signature']
+
+        # Create the query object for the specified event
+        query = self.create_event_query(
+            event_signature, block_range_dict['from_block'], block_range_dict['to_block'], address)
+
+        # Retrieve the column mapping for the event, if available
+        column_mapping = event_config.get(
+            "column_mapping", hypersync.ColumnMapping())
+
+        # Configure the stream settings for the data collection
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            event_signature=event_signature,
+            column_mapping=column_mapping
+        )
+
+        # Collect the data based on the query and configuration
+        result = await self.collect_data(query, config, save_data)
+
+        # Handle the case where no data is returned
+        if result is None:
+            raise ValueError(f"No data returned for event name: {event_name} from blocks {
+                             block_range_dict['from_block']} to {block_range_dict['to_block']}")
+
+        return result
 
     @timer
     async def get_blocks_txs(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
         """
-        Query for blocks and transactions and optionally save results.
+        Query for blocks and transactions within a specified block range and optionally save results.
 
         Args:
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the data to a file.
-            print_time (bool): Whether to print the execution time.
+            from_block (Optional[int]): The starting block number, optional.
+            to_block (Optional[int]): The ending block number, optional.
+            block_range (Optional[int]): The range of blocks to query, optional.
+            save_data (bool): Whether to save the data as a parquet file.
+            print_time (bool): Whether to print the execution time of the query.
 
         Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
+            Optional[pl.DataFrame]: The collected blocks and transactions data as a Polars DataFrame, or None if no data is returned.
         """
         block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        query = hypersync.Query(
-            from_block=from_block,
-            to_block=to_block,
-            include_all_blocks=True,
-            transactions=[TransactionSelection()],
-            field_selection=hypersync.FieldSelection(
-                block=[e.value for e in BlockField],
-                transaction=[e.value for e in TransactionField],
-            )
-        )
-
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            column_mapping=ColumnMapping(
-                transaction={
-                    TransactionField.GAS_USED: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
-                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
-                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.NONCE: DataType.INT64,
-                    TransactionField.GAS: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.VALUE: DataType.FLOAT64,
-                    TransactionField.CHAIN_ID: DataType.INT64,
-                },
-                block={
-                    BlockField.GAS_LIMIT: DataType.FLOAT64,
-                    BlockField.GAS_USED: DataType.FLOAT64,
-                    BlockField.SIZE: DataType.FLOAT64,
-                    BlockField.BLOB_GAS_USED: DataType.FLOAT64,
-                    BlockField.EXCESS_BLOB_GAS: DataType.FLOAT64,
-                    BlockField.BASE_FEE_PER_GAS: DataType.FLOAT64,
-                    BlockField.TIMESTAMP: DataType.INT64,
-                }
-            )
-        )
-        if save_data:
-            await self.client.collect_parquet('data', query, config)
-        else:
-            data = await self.client.collect_arrow(query, config)
-            print(f"Collected data: {data}")
-            blocks_df = pl.from_arrow(data.data.blocks)
-            txs_df = pl.from_arrow(data.data.transactions)
-            print(f"Blocks DataFrame shape: {blocks_df.shape}")
-            print(f"Transactions DataFrame shape: {txs_df.shape}")
-            return blocks_df, txs_df
-
-    @timer
-    async def get_new_l1_block_event_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        Query for new L1 block events and optionally save the data from BlockTracker contract.
-
-        Args:
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the data to a file.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
         query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(
-                address=[block_tracker_contract_v1], topics=[[topic0]])]
+            from_block=block_range_dict['from_block'],
+            to_block=block_range_dict['to_block'],
+            logs=[],
+            transactions=[hypersync.TransactionSelection()]
         )
+
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                transaction={
-                    TransactionField.GAS_USED: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
-                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
-                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.NONCE: DataType.INT64,
-                    TransactionField.GAS: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.VALUE: DataType.FLOAT64,
-                    TransactionField.CHAIN_ID: DataType.INT64,
-                }
-            )
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_window_deposits_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        Query for window deposit events and optionally save the data.
-
-        Args:
-            address (Optional[str]): The address to filter by.
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the data to a file.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "BidderRegistered(address indexed bidder, uint256 depositedAmount, uint256 windowNumber)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-
-        padded_address = address_to_topic(address.lower()) if address else None
-        topics = [[topic0]]
-        if padded_address:
-            topics.append([padded_address])
-
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(
-                address=[bidder_register_contract_v1], topics=topics)]
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                decoded_log={'depositedAmount': DataType.INT64,
-                             'windowNumber': DataType.INT64}
-            )
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_window_withdraws_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        Query for window withdrawal events and optionally save the data.
-
-        Args:
-            address (Optional[str]): The address to filter by.
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the data to a file.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "BidderWithdrawal(address indexed bidder, uint256 window, uint256 amount)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-
-        padded_address = address_to_topic(address.lower()) if address else None
-        topics = [[topic0]]
-        if padded_address:
-            topics.append([padded_address])
-
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(
-                address=[bidder_register_contract_v1], topics=topics)]
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                decoded_log={'amount': DataType.INT64,
-                             'window': DataType.INT64}
-            )
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        Retrieve OpenedCommitmentStored events from the blockchain.
-
-        Args:
-            address (Optional[str]): The specific address to filter events by. If None, events for all addresses are retrieved.
-            from_block (Optional[int]): The block number to start the query from. Defaults to 0 if not provided.
-            to_block (Optional[int]): The block number to end the query at. Defaults to the latest block if not provided.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the retrieved data to a file. Defaults to False.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
-
-        Event Signature:
-            OpenedCommitmentStored(
-            bytes32 indexed commitmentIndex, 
-            address bidder, 
-            address commiter, 
-            uint256 bid, 
-            uint64 blockNumber, 
-            bytes32 bidHash, 
-            uint64 decayStartTimeStamp, 
-            uint64 decayEndTimeStamp, 
-            string txnHash, 
-            string revertingTxHashes, 
-            bytes32 commitmentHash, 
-            bytes bidSignature, 
-            bytes commitmentSignature, 
-            uint64 dispatchTimestamp, 
-            bytes sharedSecretKey
-            )
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-
-        padded_address = address_to_topic(address.lower()) if address else None
-        topics = [[topic0]]
-        if padded_address:
-            topics.append([padded_address])
-
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(
-                address=[commit_store_contract_v1], topics=topics)]
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                decoded_log={
-                    "bid": DataType.UINT64,
-                    "blockNumber": DataType.UINT64,
-                    "decayStartTimeStamp": DataType.UINT64,
-                    "decayEndTimeStamp": DataType.UINT64,
-                    "dispatchTimestamp": DataType.UINT64,
-                },
-                transaction={
-                    TransactionField.GAS_USED: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
-                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
-                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.NONCE: DataType.INT64,
-                    TransactionField.GAS: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.VALUE: DataType.FLOAT64,
-                    TransactionField.CHAIN_ID: DataType.INT64,
-                }
-            )
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_encrypted_commit_stores_v1(self, address: Optional[str] = None, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        Retrieve UnopenedCommitments events from the blockchain.
-
-        Args:
-            address (Optional[str]): The specific address to filter events by. If None, events for all addresses are retrieved.
-            from_block (Optional[int]): The block number to start the query from. Defaults to 0 if not provided.
-            to_block (Optional[int]): The block number to end the query at. Defaults to the latest block if not provided.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the retrieved data to a file. Defaults to False.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
-
-        Event Signature:
-            UnopenedCommitments(
-                bytes32 indexed commitmentIndex,
-                address commiter,
-                bytes32 commitmentDigest,
-                bytes commitmentSignature,
-                uint64 dispatchTimestamp
-            )
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "UnopenedCommitmentStored(bytes32 indexed commitmentIndex,address committer,bytes32 commitmentDigest,bytes commitmentSignature,uint64 dispatchTimestamp)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[
-                LogSelection(
-                    address=[commit_store_contract_v1],
-                    topics=[[topic0]],
-                )
-            ],
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                decoded_log={
-                    "dispatchTimestamp": DataType.UINT64,
-                },
-                transaction={
-                    TransactionField.GAS_USED: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
-                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
-                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.NONCE: DataType.INT64,
-                    TransactionField.GAS: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.VALUE: DataType.FLOAT64,
-                    TransactionField.CHAIN_ID: DataType.INT64,
-                }
-            )
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_commits_processed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        Retrieve CommitmentProcessed events from the blockchain.
-
-        Args:
-            from_block (Optional[int]): The block number to start the query from. Defaults to 0 if not provided.
-            to_block (Optional[int]): The block number to end the query at. Defaults to the latest block if not provided.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the retrieved data to a file. Defaults to False.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: A DataFrame containing the retrieved events if save_data is False. Otherwise, returns None.
-
-        Event Signature:
-            CommitmentProcessed(
-                bytes32 indexed commitmentIndex,
-                bool isSlash
-            )
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(address=[oracle_contract_v1],
-                               topics=[[topic0]])]
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_funds_retrieved_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)"
-
-        Args:
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the data to a file.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(
-                address=[bidder_register_contract_v1], topics=[[topic0]])]
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                decoded_log={
-                    "window": DataType.UINT64,
-                    "amount": DataType.UINT64
-                },
-                transaction={
-                    TransactionField.GAS_USED: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
-                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
-                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.NONCE: DataType.INT64,
-                    TransactionField.GAS: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.VALUE: DataType.FLOAT64,
-                    TransactionField.CHAIN_ID: DataType.INT64,
-                }
-            )
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_funds_rewarded_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        `FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)`
-
-        Args:
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the data to a file.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(
-                address=[bidder_register_contract_v1], topics=[[topic0]])]
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                decoded_log={
-                    "window": DataType.UINT64,
-                    "amount": DataType.UINT64
-                },
-                transaction={
-                    TransactionField.GAS_USED: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
-                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
-                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.NONCE: DataType.INT64,
-                    TransactionField.GAS: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.VALUE: DataType.FLOAT64,
-                    TransactionField.CHAIN_ID: DataType.INT64,
-                }
-            )
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_funds_slashed_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        `FundsSlashed(address indexed provider, uint256 amount)`
-
-        Args:
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the data to a file.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "FundsSlashed(address indexed provider, uint256 amount)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(
-                address=[provider_registry_contract_v1], topics=[[topic0]])]
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                decoded_log={
-                    "amount": DataType.UINT64
-                },
-                transaction={
-                    TransactionField.GAS_USED: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_BLOB_GAS: DataType.FLOAT64,
-                    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.CUMULATIVE_GAS_USED: DataType.FLOAT64,
-                    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
-                    TransactionField.NONCE: DataType.INT64,
-                    TransactionField.GAS: DataType.FLOAT64,
-                    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-                    TransactionField.VALUE: DataType.FLOAT64,
-                    TransactionField.CHAIN_ID: DataType.INT64,
-                }
-            )
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_funds_deposited_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        `FundsDeposited(address indexed provider, uint256 amount)`
-
-        Args:
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the data to a file.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "FundsDeposited(address indexed provider, uint256 amount)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(
-                address=[provider_registry_contract_v1], topics=[[topic0]])]
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                decoded_log={
-                    "amount": DataType.UINT64
-                }
-            )
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_withdraw_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        `Withdraw(address indexed provider, uint256 amount)`
-
-        Args:
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the data to a file.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "Withdraw(address indexed provider, uint256 amount)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(
-                address=[provider_registry_contract_v1], topics=[[topic0]])]
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                decoded_log={
-                    "amount": DataType.UINT64
-                }
-            )
-        )
-        return await self.collect_data(query, config, save_data)
-
-    @timer
-    async def get_provider_registered_v1(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
-        """
-        `ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey)`
-
-        Args:
-            from_block (Optional[int]): The block number to start the query from.
-            to_block (Optional[int]): The block number to end the query at.
-            block_range (Optional[int]): The number of blocks to include in the query.
-            save_data (bool): Whether to save the data to a file.
-            print_time (bool): Whether to print the execution time.
-
-        Returns:
-            Optional[pl.DataFrame]: The collected data as a Polars DataFrame if save_data is False, otherwise None.
-        """
-        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        from_block, to_block = block_range_dict['from_block'], block_range_dict['to_block']
-
-        event_signature = "ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey)"
-        topic0 = hypersync.signature_to_topic0(event_signature)
-        query = self.create_query(
-            from_block=from_block,
-            to_block=to_block,
-            logs=[LogSelection(
-                address=[provider_registry_contract_v1], topics=[[topic0]])]
-        )
-        config = hypersync.StreamConfig(
-            hex_output=hypersync.HexOutput.PREFIXED,
-            event_signature=event_signature,
-            column_mapping=ColumnMapping(
-                decoded_log={
-                    "stakedAmount": DataType.UINT64,
-                }
-            )
+            column_mapping=hypersync.ColumnMapping()  # Default column mapping
         )
         return await self.collect_data(query, config, save_data)
