@@ -1,7 +1,7 @@
 import asyncio
 import polars as pl
 import unittest
-from mev_commit_sdk_py.hypersync_client import Hypersync
+from mev_commit_sdk_py.hypersync_client import Hypersync, EVENT_CONFIG
 
 # expand polars df output
 pl.Config.set_fmt_str_lengths(200)
@@ -14,80 +14,65 @@ class TestHypersyncEvents(unittest.TestCase):
     def setUpClass(cls):
         cls.client = Hypersync(url='https://mev-commit.hypersync.xyz')
 
+    def run_event_query_test(self, event_name: str):
+        """Helper method to test a specific event name."""
+        if event_name not in EVENT_CONFIG:
+            self.fail(f"Event name {event_name} not found in EVENT_CONFIG")
+
+        result = asyncio.run(
+            self.client.execute_event_query(event_name)
+        )
+        self.assertIsInstance(result, pl.DataFrame)
+        self.assertGreater(result.shape[0], 0, f"Results for {
+                           event_name} should not be empty")
+
     def test_l1_blocks(self):
-        l1_blocks = asyncio.run(self.client.get_new_l1_block_event_v1())
-        self.assertIsInstance(l1_blocks, pl.DataFrame)
-        self.assertGreater(
-            l1_blocks.shape[0], 0, "L1 blocks should not be empty")
+        event_name = "NewL1Block"
+        self.run_event_query_test(event_name)
 
     def test_window_deposits(self):
-        window_deposits = asyncio.run(self.client.get_window_deposits_v1())
-        self.assertIsInstance(window_deposits, pl.DataFrame)
-        self.assertGreater(
-            window_deposits.shape[0], 0, "Window deposits should not be empty")
+        event_name = "BidderRegistered"
+        self.run_event_query_test(event_name)
 
     def test_window_withdrawals(self):
-        window_withdrawals = asyncio.run(self.client.get_window_withdraws_v1())
-        self.assertIsInstance(window_withdrawals, pl.DataFrame)
-        self.assertGreater(
-            window_withdrawals.shape[0], 0, "Window withdraws should not be empty")
+        event_name = "BidderWithdrawal"
+        self.run_event_query_test(event_name)
 
     def test_commit_stores(self):
-        commit_stores = asyncio.run(self.client.get_commit_stores_v1())
-        self.assertIsInstance(commit_stores, pl.DataFrame)
-        self.assertGreater(
-            commit_stores.shape[0], 0, "Commit stores should not be empty")
+        event_name = "OpenedCommitmentStored"
+        self.run_event_query_test(event_name)
 
     def test_encrypted_stores(self):
-        encrypted_stores = asyncio.run(
-            self.client.get_encrypted_commit_stores_v1())
-        self.assertIsInstance(encrypted_stores, pl.DataFrame)
-        self.assertGreater(
-            encrypted_stores.shape[0], 0, "Encrypted stores should not be empty")
+        event_name = "UnopenedCommitmentStored"
+        self.run_event_query_test(event_name)
 
     def test_commits_processed(self):
-        commits_processed = asyncio.run(self.client.get_commits_processed_v1())
-        self.assertIsInstance(commits_processed, pl.DataFrame)
-        self.assertGreater(
-            commits_processed.shape[0], 0, "Commits processed should not be empty")
+        event_name = "CommitmentProcessed"
+        self.run_event_query_test(event_name)
 
     def test_funds_retrieved(self):
-        funds_retrieved = asyncio.run(
-            self.client.get_funds_retrieved_v1())
-        self.assertIsInstance(funds_retrieved, pl.DataFrame)
-        self.assertGreater(
-            funds_retrieved.shape[0], 0, "Funds retrieved should not be empty")
+        event_name = "FundsRetrieved"
+        self.run_event_query_test(event_name)
 
     def test_funds_rewarded(self):
-        funds_rewarded = asyncio.run(self.client.get_funds_rewarded_v1())
-        self.assertIsInstance(funds_rewarded, pl.DataFrame)
-        self.assertGreater(
-            funds_rewarded.shape[0], 0, "Funds rewarded should not be empty")
+        event_name = "FundsRewarded"
+        self.run_event_query_test(event_name)
 
     def test_funds_slashed(self):
-        funds_slashed = asyncio.run(self.client.get_funds_slashed_v1())
-        self.assertIsInstance(funds_slashed, pl.DataFrame)
-        self.assertGreater(
-            funds_slashed.shape[0], 0, "Funds slashed should not be empty")
+        event_name = "FundsSlashed"
+        self.run_event_query_test(event_name)
 
     def test_funds_deposited(self):
-        funds_deposited = asyncio.run(self.client.get_funds_deposited_v1())
-        self.assertIsInstance(funds_deposited, pl.DataFrame)
-        self.assertGreater(
-            funds_deposited.shape[0], 0, "Funds deposited should not be empty")
+        event_name = "FundsDeposited"
+        self.run_event_query_test(event_name)
 
     def test_withdraw(self):
-        withdraw = asyncio.run(self.client.get_withdraw_v1())
-        self.assertIsInstance(withdraw, pl.DataFrame)
-        self.assertGreater(
-            withdraw.shape[0], 0, "Withdraw events should not be empty")
+        event_name = "Withdraw"
+        self.run_event_query_test(event_name)
 
     def test_provider_registered(self):
-        provider_registered = asyncio.run(
-            self.client.get_provider_registered_v1())
-        self.assertIsInstance(provider_registered, pl.DataFrame)
-        self.assertGreater(
-            provider_registered.shape[0], 0, "Provider registered events should not be empty")
+        event_name = "ProviderRegistered"
+        self.run_event_query_test(event_name)
 
 
 if __name__ == '__main__':

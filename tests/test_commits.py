@@ -11,16 +11,21 @@ pl.Config.set_fmt_float("full")
 # to run asyncio loop in notebook
 nest_asyncio.apply()
 
-
-# query window data
+# Initialize the Hypersync client
 client = Hypersync(url='https://mev-commit.hypersync.xyz')
-commit_stores: pl.DataFrame = asyncio.run(client.get_commit_stores_v1())
-encrypted_stores: pl.DataFrame = asyncio.run(
-    client.get_encrypted_commit_stores_v1())
 
-# get commitment slashing
-commits_processed = asyncio.run(client.get_commits_processed_v1())
+# Query window data using the new event names
+commit_stores: pl.DataFrame = asyncio.run(
+    client.execute_event_query('OpenedCommitmentStored'))
+encrypted_stores: pl.DataFrame = asyncio.run(
+    client.execute_event_query('UnopenedCommitmentStored'))
+
+# Get commitment slashing
+commits_processed = asyncio.run(
+    client.execute_event_query('CommitmentProcessed'))
 
 print(commit_stores.shape)
 print(encrypted_stores.shape)
 print(commits_processed.shape)
+
+print(commit_stores.head(5))
