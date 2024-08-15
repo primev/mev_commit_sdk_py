@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from mev_commit_sdk_py.helpers import address_to_topic
 from typing import List, Optional, Callable, Awaitable
 from enum import Enum
+from hypersync import TransactionField, DataType
+
 
 # Contract addresses for different components of the protocol
 
@@ -18,16 +20,27 @@ class Contracts(Enum):
     COMMIT_STORE = "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3".lower()
 
 
+# Common transaction column mappings reused across events
+COMMON_TRANSACTION_MAPPING = {
+    TransactionField.GAS_USED: DataType.FLOAT64,
+    TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
+    TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
+    TransactionField.GAS_USED: DataType.FLOAT64,
+    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64
+}
+
 # Event configurations with event names as keys, including signatures, contracts, and optional column mappings
 EVENT_CONFIG = {
     "NewL1Block": {
         "signature": "NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)",
         "contract": Contracts.BLOCK_TRACKER,
+        "column_mapping": hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING)
     },
 
     "CommitmentProcessed": {
         "signature": "CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)",
         "contract": Contracts.ORACLE,
+        "column_mapping": hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING)
     },
 
     "BidderRegistered": {
@@ -35,17 +48,21 @@ EVENT_CONFIG = {
         "contract": Contracts.BIDDER_REGISTER,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={'depositedAmount': hypersync.DataType.INT64,
-                         'windowNumber': hypersync.DataType.INT64}
+                         'windowNumber': hypersync.DataType.INT64},
+            transaction=COMMON_TRANSACTION_MAPPING
         )
     },
+
     "BidderWithdrawal": {
         "signature": "BidderWithdrawal(address indexed bidder, uint256 window, uint256 amount)",
         "contract": Contracts.BIDDER_REGISTER,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={'amount': hypersync.DataType.INT64,
-                         'window': hypersync.DataType.INT64}
+                         'window': hypersync.DataType.INT64},
+            transaction=COMMON_TRANSACTION_MAPPING
         )
     },
+
     "OpenedCommitmentStored": {
         "signature": "OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)",
         "contract": Contracts.COMMIT_STORE,
@@ -56,58 +73,73 @@ EVENT_CONFIG = {
                 "decayStartTimeStamp": hypersync.DataType.UINT64,
                 "decayEndTimeStamp": hypersync.DataType.UINT64,
                 "dispatchTimestamp": hypersync.DataType.UINT64,
-            }
+            },
+            transaction=COMMON_TRANSACTION_MAPPING
         )
     },
+
     "FundsRetrieved": {
         "signature": "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)",
         "contract": Contracts.BIDDER_REGISTER,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"window": hypersync.DataType.UINT64,
-                         "amount": hypersync.DataType.UINT64}
+                         "amount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING
         )
     },
+
     "FundsRewarded": {
         "signature": "FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)",
         "contract": Contracts.BIDDER_REGISTER,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"window": hypersync.DataType.UINT64,
-                         "amount": hypersync.DataType.UINT64}
+                         "amount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING
         )
     },
+
     "FundsSlashed": {
         "signature": "FundsSlashed(address indexed provider, uint256 amount)",
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
-            decoded_log={"amount": hypersync.DataType.UINT64}
+            decoded_log={"amount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING
         )
     },
+
     "FundsDeposited": {
         "signature": "FundsDeposited(address indexed provider, uint256 amount)",
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
-            decoded_log={"amount": hypersync.DataType.UINT64}
+            decoded_log={"amount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING
         )
     },
+
     "Withdraw": {
         "signature": "Withdraw(address indexed provider, uint256 amount)",
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
-            decoded_log={"amount": hypersync.DataType.UINT64}
+            decoded_log={"amount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING
         )
     },
+
     "ProviderRegistered": {
         "signature": "ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey)",
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
-            decoded_log={"stakedAmount": hypersync.DataType.UINT64}
+            decoded_log={"stakedAmount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING
         )
     },
+
     "UnopenedCommitmentStored": {
         "signature": "UnopenedCommitmentStored(bytes32 indexed commitmentIndex,address committer,bytes32 commitmentDigest,bytes commitmentSignature,uint64 dispatchTimestamp)",
         "contract": Contracts.COMMIT_STORE,
         "column_mapping": hypersync.ColumnMapping(
-            decoded_log={"dispatchTimestamp": hypersync.DataType.UINT64}
+            decoded_log={"dispatchTimestamp": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING
         )
     }
 }
@@ -212,7 +244,7 @@ class Hypersync:
                 result_df = decoded_logs_df.hstack(
                     logs_df.select('transaction_hash')
                 ).rename({'transaction_hash': 'hash'}).join(
-                    transactions_df, on='hash', how='left'
+                    transactions_df.select('hash', 'block_number', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
                 )
                 return result_df
             else:
@@ -270,7 +302,7 @@ class Hypersync:
         )
 
     @timer
-    async def execute_event_query(self, event_name: str, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True, address: Optional[str] = None) -> Optional[pl.DataFrame]:
+    async def execute_event_query(self, event_name: str, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True, address: Optional[str] = None, tx_data: bool = True) -> Optional[pl.DataFrame]:
         """
         Execute a query for a specific event by its name and collect the data.
 
@@ -328,7 +360,7 @@ class Hypersync:
         )
 
         # Collect the data based on the query and configuration
-        result = await self.collect_data(query, config, save_data)
+        result = await self.collect_data(query, config, save_data, tx_data=tx_data)
 
         # Handle the case where no data is returned
         if result is None:
