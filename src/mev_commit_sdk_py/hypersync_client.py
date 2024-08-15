@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from mev_commit_sdk_py.helpers import address_to_topic
 from typing import List, Optional, Callable, Awaitable
 from enum import Enum
-from hypersync import TransactionField, DataType
+from hypersync import TransactionField, DataType, BlockField
 
 
 # Contract addresses for different components of the protocol
@@ -29,18 +29,22 @@ COMMON_TRANSACTION_MAPPING = {
     TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64
 }
 
+COMMMON_BLOCK_MAPPING = {
+    BlockField.TIMESTAMP: DataType.UINT64,
+}
+
 # Event configurations with event names as keys, including signatures, contracts, and optional column mappings
 EVENT_CONFIG = {
     "NewL1Block": {
         "signature": "NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)",
         "contract": Contracts.BLOCK_TRACKER,
-        "column_mapping": hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING)
+        "column_mapping": hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING)
     },
 
     "CommitmentProcessed": {
         "signature": "CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)",
         "contract": Contracts.ORACLE,
-        "column_mapping": hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING)
+        "column_mapping": hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING)
     },
 
     "BidderRegistered": {
@@ -49,7 +53,7 @@ EVENT_CONFIG = {
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={'depositedAmount': hypersync.DataType.INT64,
                          'windowNumber': hypersync.DataType.INT64},
-            transaction=COMMON_TRANSACTION_MAPPING
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
         )
     },
 
@@ -59,7 +63,7 @@ EVENT_CONFIG = {
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={'amount': hypersync.DataType.INT64,
                          'window': hypersync.DataType.INT64},
-            transaction=COMMON_TRANSACTION_MAPPING
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
         )
     },
 
@@ -74,7 +78,7 @@ EVENT_CONFIG = {
                 "decayEndTimeStamp": hypersync.DataType.UINT64,
                 "dispatchTimestamp": hypersync.DataType.UINT64,
             },
-            transaction=COMMON_TRANSACTION_MAPPING
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
         )
     },
 
@@ -84,7 +88,7 @@ EVENT_CONFIG = {
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"window": hypersync.DataType.UINT64,
                          "amount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
         )
     },
 
@@ -94,7 +98,7 @@ EVENT_CONFIG = {
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"window": hypersync.DataType.UINT64,
                          "amount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
         )
     },
 
@@ -103,7 +107,7 @@ EVENT_CONFIG = {
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"amount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
         )
     },
 
@@ -112,7 +116,7 @@ EVENT_CONFIG = {
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"amount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
         )
     },
 
@@ -121,7 +125,7 @@ EVENT_CONFIG = {
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"amount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
         )
     },
 
@@ -130,7 +134,7 @@ EVENT_CONFIG = {
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"stakedAmount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
         )
     },
 
@@ -139,7 +143,7 @@ EVENT_CONFIG = {
         "contract": Contracts.COMMIT_STORE,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"dispatchTimestamp": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
         )
     }
 }
@@ -213,7 +217,8 @@ class Hypersync:
             transactions=transactions or [],
             field_selection=hypersync.FieldSelection(
                 log=[e.value for e in hypersync.LogField],
-                transaction=[e.value for e in hypersync.TransactionField]
+                transaction=[e.value for e in hypersync.TransactionField],
+                block=[e.value for e in hypersync.BlockField],
             )
         )
 
@@ -237,14 +242,17 @@ class Hypersync:
             decoded_logs_df = pl.from_arrow(data.data.decoded_logs)
             logs_df = pl.from_arrow(data.data.logs)
             transactions_df = pl.from_arrow(data.data.transactions)
+            blocks_df = pl.from_arrow(data.data.blocks)
 
-            if decoded_logs_df.is_empty() or logs_df.is_empty() or transactions_df.is_empty():
+            txs_blocks_df = transactions_df.join(blocks_df.select(
+                'number', 'timestamp').rename({'number': 'block_number'}), on='block_number', how='left')
+            if decoded_logs_df.is_empty() or logs_df.is_empty() or txs_blocks_df.is_empty():
                 return None
             if tx_data:
                 result_df = decoded_logs_df.hstack(
                     logs_df.select('transaction_hash')
                 ).rename({'transaction_hash': 'hash'}).join(
-                    transactions_df.select('hash', 'block_number', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
+                    txs_blocks_df.select('hash', 'block_number', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
                 )
                 return result_df
             else:
