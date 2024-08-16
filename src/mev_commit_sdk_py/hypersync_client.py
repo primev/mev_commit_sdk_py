@@ -320,8 +320,8 @@ class Hypersync:
             - "BidderRegistered": Tracks bidder registration with deposited amount.
             - "BidderWithdrawal": Tracks bidder withdrawals.
             - "OpenedCommitmentStored": Tracks when opened commitments are stored.
-            - "FundsRetrieved": Tracks when funds are retrieved.
-            - "FundsRewarded": Tracks when funds are rewarded.
+            - "FundsRetrieved": Tracks when funds are retrieved from a bidder.
+            - "FundsRewarded": Tracks when funds are rewarded from a bidder.
             - "FundsSlashed": Tracks when funds are slashed from a provider.
             - "FundsDeposited": Tracks when funds are deposited by a provider.
             - "Withdraw": Tracks provider withdrawals.
