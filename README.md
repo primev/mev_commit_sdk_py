@@ -12,7 +12,8 @@ Customizable Queries: Flexibility in creating custom queries based on specific n
 ## Installation
 Install with `pip install mev-commit-sdk-py`
 
-This library uses `rye` as the project manager. First install [rye](https://rye.astral.sh/guide/installation/). Then clone the repository and run `rye sync` to install the dependencies and get setup. Current Python version is 3.10.12. Once installed, add a .env file with the variable `RPC='endpoint'` where endpoint is the url of the rpc server you want to connect to, this is for cryo. 
+This library uses `rye` as the project manager. First install [rye](https://rye.astral.sh/guide/installation/). Then clone the repository and run `rye sync` to install the dependencies and get setup. Current Python version is 3.12.2. Alternatively a different virtual environment manager can be used as long as it can use Python 3.12.2
+
 
 ## Usage
 This SDK is designed for ease of use in querying blockchain data. Below are some examples to help you get started:
