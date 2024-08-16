@@ -18,8 +18,22 @@ This library uses `rye` as the project manager. First install [rye](https://rye.
 This SDK is designed for ease of use in querying blockchain data. Below are some examples to help you get started:
 
 ## Event Querying
-You can query specific events using event names. For instance, to fetch data on the OpenedCommitmentStored event:
+You can query specific events using event names:
+* "NewL1Block": Tracks new L1 block events.
+* "CommitmentProcessed": Tracks when commitments are processed.
+* "BidderRegistered": Tracks bidder registration with deposited amount.
+* "BidderWithdrawal": Tracks bidder withdrawals.
+* "OpenedCommitmentStored": Tracks when opened commitments are stored.
+* "FundsRetrieved": Tracks when funds are retrieved from a bidder.
+* "FundsRewarded": Tracks when funds are rewarded from a bidder.
+* "FundsSlashed": Tracks when funds are slashed from a provider.
+* "FundsDeposited": Tracks when funds are deposited by a provider.
+* "Withdraw": Tracks provider withdrawals.
+* "ProviderRegistered": Tracks when a provider is registered.
+* "UnopenedCommitmentStored": Tracks when unopened commitments are stored.
 
+
+### Query Opened Commitments:
 ```python
 import asyncio
 import polars as pl
@@ -28,12 +42,32 @@ from mev_commit_sdk_py.hypersync_client import Hypersync
 client = Hypersync(url='https://mev-commit.hypersync.xyz')
 
 commit_stores = asyncio.run(client.execute_event_query('OpenedCommitmentStored'))
-print(commit_stores.head())
+print(commit_stores.tail(10)) # tail gets most recent events
+```
+
+### Query Proposer Slashing
+```python
+import asyncio
+import polars as pl
+from mev_commit_sdk_py.hypersync_client import Hypersync
+
+client = Hypersync(url='https://mev-commit.hypersync.xyz')
+
+provider_slashes = asyncio.run(client.execute_event_query('FundsSlashed'))
+# print(commit_stores.tail(10)) # tail gets most recent events
+
+provider_table = provider_slashes.with_columns(
+    (pl.col('amount')/ 10**18).alias('slash_amt_eth')
+).group_by('provider').agg(
+    pl.col('slash_amt_eth').sum().alias('total_amt_slashed_eth'),
+    pl.len().alias('slash_count')
+)
+
+print(provider_table)
 ```
 
 
-
-## Block and Transaction Retrieval
+### Block and Transaction Retrieval
 To retrieve transactions and blocks for a specific range:
 
 ```python
