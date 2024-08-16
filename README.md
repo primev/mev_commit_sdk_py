@@ -54,7 +54,7 @@ from mev_commit_sdk_py.hypersync_client import Hypersync
 client = Hypersync(url='https://mev-commit.hypersync.xyz')
 
 provider_slashes = asyncio.run(client.execute_event_query('FundsSlashed'))
-# print(commit_stores.tail(10)) # tail gets most recent events
+# print(provider_slashes.tail(10)) # tail gets most recent events
 
 provider_table = provider_slashes.with_columns(
     (pl.col('amount')/ 10**18).alias('slash_amt_eth')
