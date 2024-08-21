@@ -34,7 +34,9 @@ You can query specific events using event names:
 * "UnopenedCommitmentStored": Tracks when unopened commitments are stored.
 
 
-### Query Opened Commitments:
+### Block and Transaction Retrieval
+To retrieve transactions and blocks for a specific range:
+
 ```python
 import asyncio
 import polars as pl
@@ -42,11 +44,47 @@ from mev_commit_sdk_py.hypersync_client import Hypersync
 
 client = Hypersync(url='https://mev-commit.hypersync.xyz')
 
-commit_stores = asyncio.run(client.execute_event_query('OpenedCommitmentStored'))
-print(commit_stores.tail(10)) # tail gets most recent events
+txs, blocks = asyncio.run(client.get_blocks_txs(from_block=0, to_block=100000))
+print(txs.head())
+print(blocks.head())
 ```
 
-### Query Proposer Slashing
+### Query Preconf Commitment Data:
+To query and build a DataFrame of precommitment data:
+```python
+import asyncio
+import polars as pl
+from mev_commit_sdk_py.hypersync_client import Hypersync
+
+client = Hypersync(url='https://mev-commit.hypersync.xyz')
+
+# Encrypted commits have the dispatchTimestamp, which is the time when the provider decides to open the commitment to reveal the data. 
+encrypted_stores: pl.DataFrame = await client.execute_event_query('UnopenedCommitmentStored', from_block=from_block)
+
+# Opened commits have all of the bidding data such as bidder, bid amount, and decay function parameters.
+commit_stores: pl.DataFrame = await client.execute_event_query('OpenedCommitmentStored', from_block=from_block)
+
+# Get commitment slashing
+commits_processed = await client.execute_event_query('CommitmentProcessed', from_block=from_block)
+
+# Polars join log data to get comprehensive commitment data
+commitments_df: pl.DataFrame = (
+    encrypted_stores
+    .join(commit_stores, on='commitmentIndex', how='left')
+    .with_columns(('0x' + pl.col("txnHash")).alias('txnHash'))
+    .join(commits_processed.select('commitmentIndex', 'isSlash'), on='commitmentIndex', how='inner')
+).select(
+    'block_number', 'blockNumber', 'txnHash', 'bid', 'commiter', 'bidder',
+    'isSlash', 'decayStartTimeStamp', 'decayEndTimeStamp', 'dispatchTimestamp',
+    'commitmentHash', 'commitmentIndex', 'commitmentDigest', 'commitmentSignature',
+    'revertingTxHashes', 'bidHash', 'bidSignature', 'sharedSecretKey'
+)
+
+print(commitments_df.head(5))
+```
+
+
+### Query Provider Slashing
 ```python
 import asyncio
 import polars as pl
@@ -67,18 +105,3 @@ provider_table = provider_slashes.with_columns(
 print(provider_table)
 ```
 
-
-### Block and Transaction Retrieval
-To retrieve transactions and blocks for a specific range:
-
-```python
-import asyncio
-import polars as pl
-from mev_commit_sdk_py.hypersync_client import Hypersync
-
-client = Hypersync(url='https://mev-commit.hypersync.xyz')
-
-txs, blocks = asyncio.run(client.get_blocks_txs(from_block=0, to_block=100000))
-print(txs.head())
-print(blocks.head())
-```
