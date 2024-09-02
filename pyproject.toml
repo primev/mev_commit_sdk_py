@@ -5,7 +5,6 @@ description = "mev-commit python sdk for on-chain data retrieval for mev-commit 
 authors = [{ name = "Evan K", email = "evan@primev.xyz" }]
 dependencies = [
     "polars>=1.0.0",
-    "hvplot>=0.9.2",
     "pyarrow>=16.0.0",
     "python-dotenv>=1.0.1",
     "hypersync>=0.7.15",
