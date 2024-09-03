@@ -7,7 +7,7 @@ dependencies = [
     "polars>=1.0.0",
     "pyarrow>=16.0.0",
     "python-dotenv>=1.0.1",
-    "hypersync>=0.7.15",
+    "hypersync>=0.8.3",
     "git-changelog>=2.5.2",
     "bump2version>=1.0.1",
 ]
