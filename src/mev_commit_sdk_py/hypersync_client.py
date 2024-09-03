@@ -251,13 +251,14 @@ class Hypersync:
             if txs_blocks_df.is_empty():
                 return None  # All three DataFrames are empty
             else:
-                return txs_blocks_df.select('hash', 'block_number', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used')  # Return txs_blocks_df if it's not empty
+                  # Return txs_blocks_df if it's not empty
+                return txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used')
 
         if tx_data:
             result_df = decoded_logs_df.hstack(
                 logs_df.select('transaction_hash')
             ).rename({'transaction_hash': 'hash'}).join(
-                txs_blocks_df.select('hash', 'block_number', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
+                txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
             )
             return result_df
         else:
