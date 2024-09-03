@@ -26,7 +26,8 @@ COMMON_TRANSACTION_MAPPING = {
     TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
     TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
     TransactionField.GAS_USED: DataType.FLOAT64,
-    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64
+    TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
+    TransactionField.NONCE: DataType.UINT64,
 }
 
 COMMMON_BLOCK_MAPPING = {
@@ -252,13 +253,13 @@ class Hypersync:
                 return None  # All three DataFrames are empty
             else:
                   # Return txs_blocks_df if it's not empty
-                return txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used')
+                return txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'kind', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used')
 
         if tx_data:
             result_df = decoded_logs_df.hstack(
                 logs_df.select('transaction_hash')
             ).rename({'transaction_hash': 'hash'}).join(
-                txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
+                txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'kind', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
             )
             return result_df
         else:
