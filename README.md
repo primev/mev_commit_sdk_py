@@ -12,7 +12,10 @@ Customizable Queries: Flexibility in creating custom queries based on specific n
 ## Installation
 Install with `pip install mev-commit-sdk-py`
 
-This library uses `rye` as the project manager. First install [rye](https://rye.astral.sh/guide/installation/). Then clone the repository and run `rye sync` to install the dependencies and get setup. Current Python version is 3.12.2. Alternatively a different virtual environment manager can be used as long as it can use Python 3.12.2
+This library uses `rye` as the project manager. First install [rye](https://rye.astral.sh/guide/installation/). Then clone the repository and run `rye sync` to install the dependencies and get setup. Current Python version is 3.12.2. Alternatively a different virtual environment manager can be used as long as it can use Python 3.12.2.
+
+### Testing
+Run the unit tests with `python -m unittest discover -s tests` command.
 
 
 ## Usage
@@ -105,3 +108,4 @@ provider_table = provider_slashes.with_columns(
 print(provider_table)
 ```
 
+## 
