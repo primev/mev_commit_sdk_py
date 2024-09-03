@@ -32,6 +32,8 @@ COMMON_TRANSACTION_MAPPING = {
 
 COMMMON_BLOCK_MAPPING = {
     BlockField.TIMESTAMP: DataType.UINT64,
+    BlockField.BASE_FEE_PER_GAS: DataType.FLOAT64,
+    BlockField.GAS_USED: DataType.UINT64,
 }
 
 # Event configurations with event names as keys, including signatures, contracts, and optional column mappings
@@ -246,20 +248,21 @@ class Hypersync:
             blocks_df = pl.from_arrow(data.data.blocks)
 
             txs_blocks_df = transactions_df.join(blocks_df.select(
-                'number', 'timestamp').rename({'number': 'block_number'}), on='block_number', how='left')
+                'number', 'timestamp', 'base_fee_per_gas', 'gas_used', 'parent_beacon_block_root').rename({'number': 'block_number'}), on='block_number', how='left', suffix='_block')
+
         if decoded_logs_df.is_empty() or logs_df.is_empty():
             # If both decoded_logs_df and logs_df are empty
             if txs_blocks_df.is_empty():
                 return None  # All three DataFrames are empty
             else:
                   # Return txs_blocks_df if it's not empty
-                return txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'kind', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used')
+                return txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'type', 'block_hash', 'timestamp', 'base_fee_per_gas', 'gas_used_block', 'parent_beacon_block_root', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used')
 
         if tx_data:
             result_df = decoded_logs_df.hstack(
                 logs_df.select('transaction_hash')
             ).rename({'transaction_hash': 'hash'}).join(
-                txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'kind', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
+                txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'type', 'block_hash', 'timestamp', 'base_fee_per_gas', 'gas_used_block', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
             )
             return result_df
         else:
