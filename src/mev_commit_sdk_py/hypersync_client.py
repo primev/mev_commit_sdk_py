@@ -246,17 +246,22 @@ class Hypersync:
 
             txs_blocks_df = transactions_df.join(blocks_df.select(
                 'number', 'timestamp').rename({'number': 'block_number'}), on='block_number', how='left')
-            if decoded_logs_df.is_empty() or logs_df.is_empty() or txs_blocks_df.is_empty():
-                return None
-            if tx_data:
-                result_df = decoded_logs_df.hstack(
-                    logs_df.select('transaction_hash')
-                ).rename({'transaction_hash': 'hash'}).join(
-                    txs_blocks_df.select('hash', 'block_number', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
-                )
-                return result_df
+        if decoded_logs_df.is_empty() or logs_df.is_empty():
+            # If both decoded_logs_df and logs_df are empty
+            if txs_blocks_df.is_empty():
+                return None  # All three DataFrames are empty
             else:
-                return decoded_logs_df
+                return txs_blocks_df.select('hash', 'block_number', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used')  # Return txs_blocks_df if it's not empty
+
+        if tx_data:
+            result_df = decoded_logs_df.hstack(
+                logs_df.select('transaction_hash')
+            ).rename({'transaction_hash': 'hash'}).join(
+                txs_blocks_df.select('hash', 'block_number', 'block_hash', 'timestamp', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
+            )
+            return result_df
+        else:
+            return decoded_logs_df
 
     async def get_block_range(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None) -> dict[str, int]:
         """
@@ -402,6 +407,39 @@ class Hypersync:
 
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
-            column_mapping=hypersync.ColumnMapping()  # Default column mapping
+            column_mapping=hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING)
+        )
+        return await self.collect_data(query, config, save_data)
+
+    @timer
+    async def search_txs(self, txs: str | list[str], save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
+        """
+        Query for specific transactions or a list of transactions
+
+        Args:
+            save_data (bool): Whether to save the data as a parquet file.
+            print_time (bool): Whether to print the execution time of the query.
+
+        Returns:
+            Optional[pl.DataFrame]: The collected blocks and transactions data as a Polars DataFrame, or None if no data is returned.
+        """
+        # Ensure txs is a list
+        if isinstance(txs, str):
+            txs = [txs]  # Convert single string to a list
+
+        block_range_dict = await self.get_block_range(from_block=None)
+
+        query = self.create_query(
+            from_block=0,
+            to_block=block_range_dict['to_block'],
+            logs=[],
+            transactions=[hypersync.TransactionSelection(
+            hash=txs
+            )]
+        )
+
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            column_mapping=hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING)
         )
         return await self.collect_data(query, config, save_data)
