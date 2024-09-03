@@ -20,7 +20,7 @@ class TestHypersyncEvents(unittest.TestCase):
             self.fail(f"Event name {event_name} not found in EVENT_CONFIG")
 
         result = asyncio.run(
-            self.client.execute_event_query(event_name)
+            self.client.execute_event_query(event_name, from_block=0, to_block=5_000_000)
         )
         self.assertIsInstance(result, pl.DataFrame)
         self.assertGreater(result.shape[0], 0, f"Results for {
