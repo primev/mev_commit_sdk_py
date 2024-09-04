@@ -1,6 +1,6 @@
 [project]
 name = "mev-commit-sdk-py"
-version = "0.4.6"
+version = "0.4.7"
 description = "mev-commit python sdk for on-chain data retrieval for mev-commit chain"
 authors = [{ name = "Evan K", email = "evan@primev.xyz" }]
 dependencies = [
@@ -9,7 +9,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "hypersync>=0.8.3",
     "git-changelog>=2.5.2",
-    "bump2version>=1.0.1",
+    "bump2version>=1.0.1"
 ]
 readme = "README.md"
 requires-python = ">= 3.12"
