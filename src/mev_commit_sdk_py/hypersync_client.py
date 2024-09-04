@@ -200,7 +200,7 @@ class Hypersync:
         """
         return await self.client.get_height()
 
-    def create_query(self, from_block: int, to_block: int, logs: List[hypersync.LogSelection], transactions: Optional[List[hypersync.TransactionSelection]] = None) -> hypersync.Query:
+    def create_query(self, from_block: int, to_block: int, logs: List[hypersync.LogSelection], transactions: Optional[List[hypersync.TransactionSelection]] = None, blocks: Optional[List[hypersync.BlockSelection]] = None) -> hypersync.Query:
         """
         Create a Hypersync query object for querying blockchain data.
 
@@ -218,6 +218,7 @@ class Hypersync:
             to_block=to_block,
             logs=logs,
             transactions=transactions or [],
+            blocks=blocks or [],
             field_selection=hypersync.FieldSelection(
                 log=[e.value for e in hypersync.LogField],
                 transaction=[e.value for e in hypersync.TransactionField],
@@ -388,7 +389,7 @@ class Hypersync:
         return result
 
     @timer
-    async def get_blocks_txs(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
+    async def get_blocks_txs(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True, blocks_only=False) -> Optional[pl.DataFrame]:
         """
         Query for blocks and transactions within a specified block range and optionally save results.
 
@@ -403,12 +404,22 @@ class Hypersync:
             Optional[pl.DataFrame]: The collected blocks and transactions data as a Polars DataFrame, or None if no data is returned.
         """
         block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        query = self.create_query(
-            from_block=block_range_dict['from_block'],
-            to_block=block_range_dict['to_block'],
-            logs=[],
-            transactions=[hypersync.TransactionSelection()]
-        )
+
+        if blocks_only:
+            query = self.create_query(
+                from_block=block_range_dict['from_block'],
+                to_block=block_range_dict['to_block'],
+                logs=[],
+                transactions=[]
+                
+            )
+        else:
+            query = self.create_query(
+                from_block=block_range_dict['from_block'],
+                to_block=block_range_dict['to_block'],
+                logs=[],
+                transactions=[hypersync.TransactionSelection()]
+            )
 
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
@@ -448,3 +459,46 @@ class Hypersync:
             column_mapping=hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING)
         )
         return await self.collect_data(query, config, save_data)
+    
+    @timer
+    async def get_blocks(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
+        """
+        Query for blocks within a specified block range and optionally save results.
+
+        Args:
+            from_block (Optional[int]): The starting block number, optional.
+            to_block (Optional[int]): The ending block number, optional.
+            block_range (Optional[int]): The range of blocks to query, optional.
+            save_data (bool): Whether to save the data as a parquet file.
+            print_time (bool): Whether to print the execution time of the query.
+
+        Returns:
+            Optional[pl.DataFrame]: The collected block data as a Polars DataFrame, or None if no data is returned.
+        """
+        # Get the block range to query
+        block_range_dict = await self.get_block_range(from_block, to_block, block_range)
+
+        # Create a query for blocks only
+        query = self.create_query(
+            from_block=block_range_dict['from_block'],
+            to_block=block_range_dict['to_block'],
+            logs=[],
+            transactions=[],
+            blocks=[hypersync.BlockSelection()]
+        )
+
+        # Configure the stream settings for blocks
+        config = hypersync.StreamConfig(
+            hex_output=hypersync.HexOutput.PREFIXED,
+            column_mapping=hypersync.ColumnMapping(block=COMMMON_BLOCK_MAPPING)
+        )
+
+        # Collect block data
+        data = await self.client.collect_arrow(query, config)
+        blocks_df = pl.from_arrow(data.data.blocks)
+
+        # Save data as parquet file if required
+        if save_data and not blocks_df.is_empty():
+            blocks_df.write_parquet("blocks_data.parquet")
+
+        return blocks_df if not blocks_df.is_empty() else None
