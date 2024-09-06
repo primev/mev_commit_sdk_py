@@ -9,15 +9,17 @@ from enum import Enum
 from hypersync import TransactionField, DataType, BlockField
 
 
-# Contract addresses for different components of the protocol
-
-
+# Contract addresses for different components of mev-commit
 class Contracts(Enum):
+    # mev-commit contracts
     ORACLE = "0x6856Eb630C79D491886E104D328834643B3F69E3".lower()
     BLOCK_TRACKER = "0x2eEbF31f5c932D51556E70235FB98bB2237d065c".lower()
     BIDDER_REGISTER = "0x7ffa86fF89489Bca72Fec2a978e33f9870B2Bd25".lower()
     PROVIDER_REGISTRY = "0x4FC9b98e1A0Ff10de4c2cf294656854F1d5B207D".lower()
     COMMIT_STORE = "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3".lower()
+    # holesky contracts (validator contracts are on holesky)
+    VALIDATOR_REGISTRY = "0x5d4fC7B5Aeea4CF4F0Ca6Be09A2F5AaDAd2F2803".lower()
+    VALIDATOR_OPT_IN_ROUTER = "0xCae46e1013D33587180Db5933Abd75D977c2d7ab".lower()
 
 
 # Common transaction column mappings reused across events
@@ -41,35 +43,41 @@ EVENT_CONFIG = {
     "NewL1Block": {
         "signature": "NewL1Block(uint256 indexed blockNumber,address indexed winner,uint256 indexed window)",
         "contract": Contracts.BLOCK_TRACKER,
-        "column_mapping": hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING)
+        "column_mapping": hypersync.ColumnMapping(
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
+        ),
     },
-
     "CommitmentProcessed": {
         "signature": "CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash)",
         "contract": Contracts.ORACLE,
-        "column_mapping": hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING)
+        "column_mapping": hypersync.ColumnMapping(
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
+        ),
     },
-
     "BidderRegistered": {
         "signature": "BidderRegistered(address indexed bidder, uint256 depositedAmount, uint256 windowNumber)",
         "contract": Contracts.BIDDER_REGISTER,
         "column_mapping": hypersync.ColumnMapping(
-            decoded_log={'depositedAmount': hypersync.DataType.INT64,
-                         'windowNumber': hypersync.DataType.INT64},
-            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
-        )
+            decoded_log={
+                "depositedAmount": hypersync.DataType.INT64,
+                "windowNumber": hypersync.DataType.INT64,
+            },
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
     },
-
     "BidderWithdrawal": {
         "signature": "BidderWithdrawal(address indexed bidder, uint256 window, uint256 amount)",
         "contract": Contracts.BIDDER_REGISTER,
         "column_mapping": hypersync.ColumnMapping(
-            decoded_log={'amount': hypersync.DataType.INT64,
-                         'window': hypersync.DataType.INT64},
-            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
-        )
+            decoded_log={
+                "amount": hypersync.DataType.INT64,
+                "window": hypersync.DataType.INT64,
+            },
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
     },
-
     "OpenedCommitmentStored": {
         "signature": "OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address commiter, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentHash, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)",
         "contract": Contracts.COMMIT_STORE,
@@ -81,74 +89,182 @@ EVENT_CONFIG = {
                 "decayEndTimeStamp": hypersync.DataType.UINT64,
                 "dispatchTimestamp": hypersync.DataType.UINT64,
             },
-            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
-        )
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
     },
-
     "FundsRetrieved": {
         "signature": "FundsRetrieved(bytes32 indexed commitmentDigest,address indexed bidder,uint256 window,uint256 amount)",
         "contract": Contracts.BIDDER_REGISTER,
         "column_mapping": hypersync.ColumnMapping(
-            decoded_log={"window": hypersync.DataType.UINT64,
-                         "amount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
-        )
+            decoded_log={
+                "window": hypersync.DataType.UINT64,
+                "amount": hypersync.DataType.UINT64,
+            },
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
     },
-
     "FundsRewarded": {
         "signature": "FundsRewarded(bytes32 indexed commitmentDigest, address indexed bidder, address indexed provider, uint256 window, uint256 amount)",
         "contract": Contracts.BIDDER_REGISTER,
         "column_mapping": hypersync.ColumnMapping(
-            decoded_log={"window": hypersync.DataType.UINT64,
-                         "amount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
-        )
+            decoded_log={
+                "window": hypersync.DataType.UINT64,
+                "amount": hypersync.DataType.UINT64,
+            },
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
     },
-
     "FundsSlashed": {
         "signature": "FundsSlashed(address indexed provider, uint256 amount)",
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"amount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
-        )
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
     },
-
     "FundsDeposited": {
         "signature": "FundsDeposited(address indexed provider, uint256 amount)",
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"amount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
-        )
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
     },
-
     "Withdraw": {
         "signature": "Withdraw(address indexed provider, uint256 amount)",
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"amount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
-        )
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
     },
-
     "ProviderRegistered": {
         "signature": "ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey)",
         "contract": Contracts.PROVIDER_REGISTRY,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"stakedAmount": hypersync.DataType.UINT64},
-            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
-        )
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
     },
-
     "UnopenedCommitmentStored": {
         "signature": "UnopenedCommitmentStored(bytes32 indexed commitmentIndex,address committer,bytes32 commitmentDigest,bytes commitmentSignature,uint64 dispatchTimestamp)",
         "contract": Contracts.COMMIT_STORE,
         "column_mapping": hypersync.ColumnMapping(
             decoded_log={"dispatchTimestamp": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
+    },
+    "Staked": {
+        "signature": "Staked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)",
+        "contract": Contracts.VALIDATOR_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"amount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
+    },
+    "StakeAdded": {
+        "signature": "StakeAdded(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount, uint256 newBalance)",
+        "contract": Contracts.VALIDATOR_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={
+                "amount": hypersync.DataType.UINT64,
+                "newBalance": hypersync.DataType.UINT64,
+            },
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
+    },
+    "Unstaked": {
+        "signature": "Unstaked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)",
+        "contract": Contracts.VALIDATOR_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"amount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
+    },
+    "StakeWithdrawn": {
+        "signature": "StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)",
+        "contract": Contracts.VALIDATOR_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"amount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
+    },
+    "Slashed": {
+        "signature": "Slashed(address indexed msgSender, address indexed slashReceiver, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)",
+        "contract": Contracts.VALIDATOR_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"amount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
+    },
+    "MinStakeSet": {
+        "signature": "MinStakeSet(address indexed msgSender, uint256 newMinStake)",
+        "contract": Contracts.VALIDATOR_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"newMinStake": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
+    },
+    "SlashAmountSet": {
+        "signature": "SlashAmountSet(address indexed msgSender, uint256 newSlashAmount)",
+        "contract": Contracts.VALIDATOR_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"newSlashAmount": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
+    },
+    "SlashOracleSet": {
+        "signature": "SlashOracleSet(address indexed msgSender, address newSlashOracle)",
+        "contract": Contracts.VALIDATOR_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
             transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
-        )
-    }
+        ),
+    },
+    "SlashReceiverSet": {
+        "signature": "SlashReceiverSet(address indexed msgSender, address newSlashReceiver)",
+        "contract": Contracts.VALIDATOR_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
+        ),
+    },
+    "UnstakePeriodBlocksSet": {
+        "signature": "UnstakePeriodBlocksSet(address indexed msgSender, uint256 newUnstakePeriodBlocks)",
+        "contract": Contracts.VALIDATOR_REGISTRY,
+        "column_mapping": hypersync.ColumnMapping(
+            decoded_log={"newUnstakePeriodBlocks": hypersync.DataType.UINT64},
+            transaction=COMMON_TRANSACTION_MAPPING,
+            block=COMMMON_BLOCK_MAPPING,
+        ),
+    },
+    "VanillaRegistrySet": {
+        "signature": "VanillaRegistrySet(address oldContract, address newContract)",
+        "contract": Contracts.VALIDATOR_OPT_IN_ROUTER,
+        "column_mapping": hypersync.ColumnMapping(
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
+        ),
+    },
+    "MevCommitAVSSet": {
+        "signature": "VanillaRegistrySet(address oldContract, address newContract)",
+        "contract": Contracts.VALIDATOR_OPT_IN_ROUTER,
+        "column_mapping": hypersync.ColumnMapping(
+            transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
+        ),
+    },
 }
 
 
@@ -162,8 +278,9 @@ def timer(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]
     Returns:
         Callable[..., Awaitable[None]]: The wrapped function with timing functionality.
     """
+
     async def wrapper(*args, **kwargs):
-        print_time = kwargs.pop('print_time', True)
+        print_time = kwargs.pop("print_time", True)
         start_time = time.time()
         result = await func(*args, **kwargs)
         end_time = time.time()
@@ -171,6 +288,7 @@ def timer(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]
             print(f"{func.__name__} query finished in {
                   end_time - start_time:.2f} seconds.")
         return result
+
     return wrapper
 
 
@@ -183,13 +301,13 @@ class Hypersync:
         url (str): The URL of the Hypersync service.
         client (hypersync.HypersyncClient): The Hypersync client instance, initialized in __post_init__.
     """
+
     url: str
     client: hypersync.HypersyncClient = field(init=False)
 
     def __post_init__(self):
         """Initialize the Hypersync client after the dataclass is instantiated."""
-        self.client = hypersync.HypersyncClient(
-            hypersync.ClientConfig(url=self.url))
+        self.client = hypersync.HypersyncClient(hypersync.ClientConfig(url=self.url))
 
     async def get_height(self) -> int:
         """
@@ -200,7 +318,14 @@ class Hypersync:
         """
         return await self.client.get_height()
 
-    def create_query(self, from_block: int, to_block: int, logs: List[hypersync.LogSelection], transactions: Optional[List[hypersync.TransactionSelection]] = None, blocks: Optional[List[hypersync.BlockSelection]] = None) -> hypersync.Query:
+    def create_query(
+        self,
+        from_block: int,
+        to_block: int,
+        logs: List[hypersync.LogSelection],
+        transactions: Optional[List[hypersync.TransactionSelection]] = None,
+        blocks: Optional[List[hypersync.BlockSelection]] = None,
+    ) -> hypersync.Query:
         """
         Create a Hypersync query object for querying blockchain data.
 
@@ -223,10 +348,16 @@ class Hypersync:
                 log=[e.value for e in hypersync.LogField],
                 transaction=[e.value for e in hypersync.TransactionField],
                 block=[e.value for e in hypersync.BlockField],
-            )
+            ),
         )
 
-    async def collect_data(self, query: hypersync.Query, config: hypersync.StreamConfig, save_data: bool, tx_data: bool = False) -> Optional[pl.DataFrame]:
+    async def collect_data(
+        self,
+        query: hypersync.Query,
+        config: hypersync.StreamConfig,
+        save_data: bool,
+        tx_data: bool = False,
+    ) -> Optional[pl.DataFrame]:
         """
         Collect data using the Hypersync client and return it as a Polars DataFrame or save it as a parquet file.
 
@@ -240,7 +371,7 @@ class Hypersync:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame, or None if no data is returned.
         """
         if save_data:
-            return await self.client.collect_parquet('data', query, config)
+            return await self.client.collect_parquet("data", query, config)
         else:
             data = await self.client.collect_arrow(query, config)
             decoded_logs_df = pl.from_arrow(data.data.decoded_logs)
@@ -248,28 +379,78 @@ class Hypersync:
             transactions_df = pl.from_arrow(data.data.transactions)
             blocks_df = pl.from_arrow(data.data.blocks)
 
-            txs_blocks_df = transactions_df.join(blocks_df.select(
-                'number', 'timestamp', 'base_fee_per_gas', 'gas_used', 'parent_beacon_block_root').rename({'number': 'block_number'}), on='block_number', how='left', suffix='_block')
+            txs_blocks_df = transactions_df.join(
+                blocks_df.select(
+                    "number",
+                    "timestamp",
+                    "base_fee_per_gas",
+                    "gas_used",
+                    "parent_beacon_block_root",
+                ).rename({"number": "block_number"}),
+                on="block_number",
+                how="left",
+                suffix="_block",
+            )
 
         if decoded_logs_df.is_empty() or logs_df.is_empty():
             # If both decoded_logs_df and logs_df are empty
             if txs_blocks_df.is_empty():
                 return None  # All three DataFrames are empty
             else:
-                  # Return txs_blocks_df if it's not empty
-                return txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'type', 'block_hash', 'timestamp', 'base_fee_per_gas', 'gas_used_block', 'parent_beacon_block_root', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used')
+                # Return txs_blocks_df if it's not empty
+                return txs_blocks_df.select(
+                    "hash",
+                    "block_number",
+                    "to",
+                    "from",
+                    "nonce",
+                    "type",
+                    "block_hash",
+                    "timestamp",
+                    "base_fee_per_gas",
+                    "gas_used_block",
+                    "parent_beacon_block_root",
+                    "max_priority_fee_per_gas",
+                    "max_fee_per_gas",
+                    "effective_gas_price",
+                    "gas_used",
+                )
 
         if tx_data:
-            result_df = decoded_logs_df.hstack(
-                logs_df.select('transaction_hash')
-            ).rename({'transaction_hash': 'hash'}).join(
-                txs_blocks_df.select('hash', 'block_number', 'to', 'from', 'nonce', 'type', 'block_hash', 'timestamp', 'base_fee_per_gas', 'gas_used_block', 'max_priority_fee_per_gas', 'max_fee_per_gas', 'effective_gas_price', 'gas_used'), on='hash', how='left'
+            result_df = (
+                decoded_logs_df.hstack(logs_df.select("transaction_hash"))
+                .rename({"transaction_hash": "hash"})
+                .join(
+                    txs_blocks_df.select(
+                        "hash",
+                        "block_number",
+                        "to",
+                        "from",
+                        "nonce",
+                        "type",
+                        "block_hash",
+                        "timestamp",
+                        "base_fee_per_gas",
+                        "gas_used_block",
+                        "max_priority_fee_per_gas",
+                        "max_fee_per_gas",
+                        "effective_gas_price",
+                        "gas_used",
+                    ),
+                    on="hash",
+                    how="left",
+                )
             )
             return result_df
         else:
             return decoded_logs_df
 
-    async def get_block_range(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None) -> dict[str, int]:
+    async def get_block_range(
+        self,
+        from_block: Optional[int] = None,
+        to_block: Optional[int] = None,
+        block_range: Optional[int] = None,
+    ) -> dict[str, int]:
         """
         Determine the block range to be used in a query.
 
@@ -282,11 +463,16 @@ class Hypersync:
             dict[str, int]: A dictionary containing 'from_block' and 'to_block'.
         """
         to_block = to_block or await self.get_height()
-        from_block = from_block or (
-            to_block - block_range if block_range else 0)
-        return {'from_block': from_block, 'to_block': to_block}
+        from_block = from_block or (to_block - block_range if block_range else 0)
+        return {"from_block": from_block, "to_block": to_block}
 
-    def create_event_query(self, event_signature: str, from_block: int, to_block: int, address: Optional[str] = None) -> hypersync.Query:
+    def create_event_query(
+        self,
+        event_signature: str,
+        from_block: int,
+        to_block: int,
+        address: Optional[str] = None,
+    ) -> hypersync.Query:
         """
         Create a query for a specific event based on the event signature.
 
@@ -303,8 +489,10 @@ class Hypersync:
             ValueError: If the event signature is not supported.
         """
         # Find the event configuration using the signature
-        config = next((v for k, v in EVENT_CONFIG.items()
-                      if v["signature"] == event_signature), None)
+        config = next(
+            (v for k, v in EVENT_CONFIG.items() if v["signature"] == event_signature),
+            None,
+        )
         if not config:
             raise ValueError(f"Unsupported event signature: {event_signature}")
 
@@ -316,12 +504,25 @@ class Hypersync:
         return self.create_query(
             from_block=from_block,
             to_block=to_block,
-            logs=[hypersync.LogSelection(
-                address=[config["contract"].value], topics=topics)]
+            logs=[
+                hypersync.LogSelection(
+                    address=[config["contract"].value], topics=topics
+                )
+            ],
         )
 
     @timer
-    async def execute_event_query(self, event_name: str, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True, address: Optional[str] = None, tx_data: bool = True) -> Optional[pl.DataFrame]:
+    async def execute_event_query(
+        self,
+        event_name: str,
+        from_block: Optional[int] = None,
+        to_block: Optional[int] = None,
+        block_range: Optional[int] = None,
+        save_data: bool = False,
+        print_time: bool = True,
+        address: Optional[str] = None,
+        tx_data: bool = True,
+    ) -> Optional[pl.DataFrame]:
         """
         Execute a query for a specific event by its name and collect the data.
 
@@ -361,21 +562,24 @@ class Hypersync:
 
         # Determine the block range for the query
         block_range_dict = await self.get_block_range(from_block, to_block, block_range)
-        event_signature = event_config['signature']
+        event_signature = event_config["signature"]
 
         # Create the query object for the specified event
         query = self.create_event_query(
-            event_signature, block_range_dict['from_block'], block_range_dict['to_block'], address)
+            event_signature,
+            block_range_dict["from_block"],
+            block_range_dict["to_block"],
+            address,
+        )
 
         # Retrieve the column mapping for the event, if available
-        column_mapping = event_config.get(
-            "column_mapping", hypersync.ColumnMapping())
+        column_mapping = event_config.get("column_mapping", hypersync.ColumnMapping())
 
         # Configure the stream settings for the data collection
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
             event_signature=event_signature,
-            column_mapping=column_mapping
+            column_mapping=column_mapping,
         )
 
         # Collect the data based on the query and configuration
@@ -389,7 +593,15 @@ class Hypersync:
         return result
 
     @timer
-    async def get_blocks_txs(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True, blocks_only=False) -> Optional[pl.DataFrame]:
+    async def get_blocks_txs(
+        self,
+        from_block: Optional[int] = None,
+        to_block: Optional[int] = None,
+        block_range: Optional[int] = None,
+        save_data: bool = False,
+        print_time: bool = True,
+        blocks_only=False,
+    ) -> Optional[pl.DataFrame]:
         """
         Query for blocks and transactions within a specified block range and optionally save results.
 
@@ -407,28 +619,31 @@ class Hypersync:
 
         if blocks_only:
             query = self.create_query(
-                from_block=block_range_dict['from_block'],
-                to_block=block_range_dict['to_block'],
+                from_block=block_range_dict["from_block"],
+                to_block=block_range_dict["to_block"],
                 logs=[],
-                transactions=[]
-                
+                transactions=[],
             )
         else:
             query = self.create_query(
-                from_block=block_range_dict['from_block'],
-                to_block=block_range_dict['to_block'],
+                from_block=block_range_dict["from_block"],
+                to_block=block_range_dict["to_block"],
                 logs=[],
-                transactions=[hypersync.TransactionSelection()]
+                transactions=[hypersync.TransactionSelection()],
             )
 
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
-            column_mapping=hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING)
+            column_mapping=hypersync.ColumnMapping(
+                transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
+            ),
         )
         return await self.collect_data(query, config, save_data)
 
     @timer
-    async def search_txs(self, txs: str | list[str], save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
+    async def search_txs(
+        self, txs: str | list[str], save_data: bool = False, print_time: bool = True
+    ) -> Optional[pl.DataFrame]:
         """
         Query for specific transactions or a list of transactions
 
@@ -447,21 +662,28 @@ class Hypersync:
 
         query = self.create_query(
             from_block=0,
-            to_block=block_range_dict['to_block'],
+            to_block=block_range_dict["to_block"],
             logs=[],
-            transactions=[hypersync.TransactionSelection(
-            hash=txs
-            )]
+            transactions=[hypersync.TransactionSelection(hash=txs)],
         )
 
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
-            column_mapping=hypersync.ColumnMapping(transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING)
+            column_mapping=hypersync.ColumnMapping(
+                transaction=COMMON_TRANSACTION_MAPPING, block=COMMMON_BLOCK_MAPPING
+            ),
         )
         return await self.collect_data(query, config, save_data)
-    
+
     @timer
-    async def get_blocks(self, from_block: Optional[int] = None, to_block: Optional[int] = None, block_range: Optional[int] = None, save_data: bool = False, print_time: bool = True) -> Optional[pl.DataFrame]:
+    async def get_blocks(
+        self,
+        from_block: Optional[int] = None,
+        to_block: Optional[int] = None,
+        block_range: Optional[int] = None,
+        save_data: bool = False,
+        print_time: bool = True,
+    ) -> Optional[pl.DataFrame]:
         """
         Query for blocks within a specified block range and optionally save results.
 
@@ -480,17 +702,17 @@ class Hypersync:
 
         # Create a query for blocks only
         query = self.create_query(
-            from_block=block_range_dict['from_block'],
-            to_block=block_range_dict['to_block'],
+            from_block=block_range_dict["from_block"],
+            to_block=block_range_dict["to_block"],
             logs=[],
             transactions=[],
-            blocks=[hypersync.BlockSelection()]
+            blocks=[hypersync.BlockSelection()],
         )
 
         # Configure the stream settings for blocks
         config = hypersync.StreamConfig(
             hex_output=hypersync.HexOutput.PREFIXED,
-            column_mapping=hypersync.ColumnMapping(block=COMMMON_BLOCK_MAPPING)
+            column_mapping=hypersync.ColumnMapping(block=COMMMON_BLOCK_MAPPING),
         )
 
         # Collect block data
