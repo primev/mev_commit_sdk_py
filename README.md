@@ -1,43 +1,61 @@
 # mev-commit-sdk-py
 
 ## Introduction
+
 The mev-commit-sdk-py is a Python-based SDK designed to interact with the MEV Commit protocol, enabling developers to efficiently query blockchain data such as events, transactions, and blocks. This SDK leverages Envio's Hypersync Indexer to streamline data retrieval from the MEV Commit chain.
 
 ## Features
-* Event Querying: Retrieve and analyze specific events on the mev-commit blockchain.
-* Block and Transaction Retrieval: Access detailed block and transaction data across a specified range of blocks.
-* Data Transformation: Utilize Polars DataFrames to handle and process data efficiently.
-Customizable Queries: Flexibility in creating custom queries based on specific needs, including event filtering by block range or address.
+
+- Event Querying: Retrieve and analyze specific events on the mev-commit blockchain.
+- Block and Transaction Retrieval: Access detailed block and transaction data across a specified range of blocks.
+- Data Transformation: Utilize Polars DataFrames to handle and process data efficiently.
+  Customizable Queries: Flexibility in creating custom queries based on specific needs, including event filtering by block range or address.
 
 ## Installation
+
 Install with `pip install mev-commit-sdk-py`
 
 This library uses `rye` as the project manager. First install [rye](https://rye.astral.sh/guide/installation/). Then clone the repository and run `rye sync` to install the dependencies and get setup. Current Python version is 3.12.2. Alternatively a different virtual environment manager can be used as long as it can use Python 3.12.2.
 
 ### Testing
+
 Run the unit tests with `python -m unittest discover -s tests` command.
 
-
 ## Usage
+
 This SDK is designed for ease of use in querying blockchain data. Below are some examples to help you get started:
 
 ## Event Querying
-You can query specific events using event names:
-* "NewL1Block": Tracks new L1 block events.
-* "CommitmentProcessed": Tracks when commitments are processed.
-* "BidderRegistered": Tracks bidder registration with deposited amount.
-* "BidderWithdrawal": Tracks bidder withdrawals.
-* "OpenedCommitmentStored": Tracks when opened commitments are stored.
-* "FundsRetrieved": Tracks when funds are retrieved from a bidder.
-* "FundsRewarded": Tracks when funds are rewarded from a bidder.
-* "FundsSlashed": Tracks when funds are slashed from a provider.
-* "FundsDeposited": Tracks when funds are deposited by a provider.
-* "Withdraw": Tracks provider withdrawals.
-* "ProviderRegistered": Tracks when a provider is registered.
-* "UnopenedCommitmentStored": Tracks when unopened commitments are stored.
 
+You can query specific events using event names:
+
+- "NewL1Block": Tracks new L1 block events.
+- "CommitmentProcessed": Tracks when commitments are processed.
+- "BidderRegistered": Tracks bidder registration with deposited amount.
+- "BidderWithdrawal": Tracks bidder withdrawals.
+- "OpenedCommitmentStored": Tracks when opened commitments are stored.
+- "FundsRetrieved": Tracks when funds are retrieved from a bidder.
+- "FundsRewarded": Tracks when funds are rewarded from a bidder.
+- "FundsSlashed": Tracks when funds are slashed from a provider.
+- "FundsDeposited": Tracks when funds are deposited by a provider.
+- "Withdraw": Tracks provider withdrawals.
+- "ProviderRegistered": Tracks when a provider is registered.
+- "UnopenedCommitmentStored": Tracks when unopened commitments are stored.
+- "Staked": Tracks when a validator is staked.
+- "StakeAdded": Tracks when additional ETH is added to a validator’s stake.
+- "Unstaked": Tracks when a validator is unstaked.
+- "StakeWithdrawn": Tracks when a validator's stake is withdrawn.
+- "Slashed": Tracks when a validator is slashed.
+- "MinStakeSet": Tracks when the minimum stake amount is set.
+- "SlashAmountSet": Tracks when the slash amount is set.
+- "SlashOracleSet": Tracks when the slash oracle is set.
+- "SlashReceiverSet": Tracks when the slash receiver is set.
+- "UnstakePeriodBlocksSet": Tracks when the unstake period blocks are set.
+- "VanillaRegistrySet": Tracks when the Vanilla Registry contract is set.
+- "MevCommitAVSSet": Tracks when the Mev Commit AVS contract is set.
 
 ### Block and Transaction Retrieval
+
 To retrieve transactions and blocks for a specific range:
 
 ```python
@@ -53,7 +71,9 @@ print(blocks.head())
 ```
 
 ### Query Preconf Commitment Data:
+
 To query and build a DataFrame of precommitment data:
+
 ```python
 import asyncio
 import polars as pl
@@ -61,7 +81,7 @@ from mev_commit_sdk_py.hypersync_client import Hypersync
 
 client = Hypersync(url='https://mev-commit.hypersync.xyz')
 
-# Encrypted commits have the dispatchTimestamp, which is the time when the provider decides to open the commitment to reveal the data. 
+# Encrypted commits have the dispatchTimestamp, which is the time when the provider decides to open the commitment to reveal the data.
 encrypted_stores: pl.DataFrame = await client.execute_event_query('UnopenedCommitmentStored', from_block=from_block)
 
 # Opened commits have all of the bidding data such as bidder, bid amount, and decay function parameters.
@@ -86,8 +106,8 @@ commitments_df: pl.DataFrame = (
 print(commitments_df.head(5))
 ```
 
-
 ### Query Provider Slashing
+
 ```python
 import asyncio
 import polars as pl
@@ -108,4 +128,4 @@ provider_table = provider_slashes.with_columns(
 print(provider_table)
 ```
 
-## 
+##

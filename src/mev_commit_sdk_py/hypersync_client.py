@@ -539,6 +539,18 @@ class Hypersync:
             - "Withdraw": Tracks provider withdrawals.
             - "ProviderRegistered": Tracks when a provider is registered.
             - "UnopenedCommitmentStored": Tracks when unopened commitments are stored.
+            - "Staked": Tracks when a validator is staked.
+            - "StakeAdded": Tracks when additional ETH is added to a validator’s stake.
+            - "Unstaked": Tracks when a validator is unstaked.
+            - "StakeWithdrawn": Tracks when a validator's stake is withdrawn.
+            - "Slashed": Tracks when a validator is slashed.
+            - "MinStakeSet": Tracks when the minimum stake amount is set.
+            - "SlashAmountSet": Tracks when the slash amount is set.
+            - "SlashOracleSet": Tracks when the slash oracle is set.
+            - "SlashReceiverSet": Tracks when the slash receiver is set.
+            - "UnstakePeriodBlocksSet": Tracks when the unstake period blocks are set.
+            - "VanillaRegistrySet": Tracks when the Vanilla Registry contract is set.
+            - "MevCommitAVSSet": Tracks when the Mev Commit AVS contract is set.
 
         Args:
             event_name (str): The name of the event to query.
