@@ -27,15 +27,25 @@ COMMON_TRANSACTION_MAPPING = {
     TransactionField.GAS_USED: DataType.FLOAT64,
     TransactionField.MAX_PRIORITY_FEE_PER_GAS: DataType.FLOAT64,
     TransactionField.MAX_FEE_PER_GAS: DataType.FLOAT64,
-    TransactionField.GAS_USED: DataType.FLOAT64,
     TransactionField.EFFECTIVE_GAS_PRICE: DataType.FLOAT64,
     TransactionField.NONCE: DataType.UINT64,
+    TransactionField.CHAIN_ID: DataType.UINT64,
+    TransactionField.CUMULATIVE_GAS_USED: DataType.UINT64,
+    TransactionField.VALUE: DataType.FLOAT64,
+    TransactionField.GAS: DataType.UINT64,
+    TransactionField.GAS_PRICE: DataType.FLOAT64,
 }
 
 COMMMON_BLOCK_MAPPING = {
     BlockField.TIMESTAMP: DataType.UINT64,
     BlockField.BASE_FEE_PER_GAS: DataType.FLOAT64,
     BlockField.GAS_USED: DataType.UINT64,
+    BlockField.NONCE: DataType.UINT64,
+    BlockField.DIFFICULTY: DataType.UINT64,
+    BlockField.SIZE: DataType.UINT64,
+    BlockField.GAS_LIMIT: DataType.UINT64,
+    BlockField.BLOB_GAS_USED: DataType.UINT64,
+    BlockField.EXCESS_BLOB_GAS: DataType.UINT64,
 }
 
 # Event configurations with event names as keys, including signatures, contracts, and optional column mappings
@@ -379,6 +389,12 @@ class Hypersync:
             transactions_df = pl.from_arrow(data.data.transactions)
             blocks_df = pl.from_arrow(data.data.blocks)
 
+            print("DEBUGGING")
+            print("blocks")
+            print(blocks_df)
+
+            print("decoded_logs")
+            print(decoded_logs_df)
             txs_blocks_df = transactions_df.join(
                 blocks_df.select(
                     "number",
@@ -560,6 +576,7 @@ class Hypersync:
             save_data (bool): Whether to save the data as a parquet file.
             print_time (bool): Whether to print the execution time of the query.
             address (Optional[str]): Optional address to filter the event logs.
+            tx_data (bool): Whether to include transaction data in the result.
 
         Returns:
             Optional[pl.DataFrame]: The collected data as a Polars DataFrame, or None if no data is returned.
