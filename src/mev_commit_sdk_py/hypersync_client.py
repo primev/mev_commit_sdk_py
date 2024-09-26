@@ -18,8 +18,11 @@ class Contracts(Enum):
     PROVIDER_REGISTRY = "0x4FC9b98e1A0Ff10de4c2cf294656854F1d5B207D".lower()
     COMMIT_STORE = "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3".lower()
     # holesky contracts (validator contracts are on holesky)
-    VALIDATOR_REGISTRY = "0x5d4fC7B5Aeea4CF4F0Ca6Be09A2F5AaDAd2F2803".lower()
+    # old validator contracts
+    # VALIDATOR_REGISTRY = "0x5d4fC7B5Aeea4CF4F0Ca6Be09A2F5AaDAd2F2803".lower()
     VALIDATOR_OPT_IN_ROUTER = "0xCae46e1013D33587180Db5933Abd75D977c2d7ab".lower()
+    # new validator contracts (9/26/24)
+    VALIDATOR_REGISTRY = "0x87D5F694fAD0b6C8aaBCa96277DE09451E277Bcf".lower()
 
 
 # Common transaction column mappings reused across events
@@ -172,6 +175,7 @@ EVENT_CONFIG = {
             block=COMMMON_BLOCK_MAPPING,
         ),
     },
+    # validator set stuff
     "Staked": {
         "signature": "Staked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)",
         "contract": Contracts.VALIDATOR_REGISTRY,
@@ -389,12 +393,6 @@ class Hypersync:
             transactions_df = pl.from_arrow(data.data.transactions)
             blocks_df = pl.from_arrow(data.data.blocks)
 
-            print("DEBUGGING")
-            print("blocks")
-            print(blocks_df)
-
-            print("decoded_logs")
-            print(decoded_logs_df)
             txs_blocks_df = transactions_df.join(
                 blocks_df.select(
                     "number",
